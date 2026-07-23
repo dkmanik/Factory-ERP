@@ -1,5 +1,5 @@
 # ======================================================================
-# [PART_1_START] - Security Lock, Login Form & Main Configurations
+# [PART_1_START] - Security Lock, Login Form & Main Configurations (DATABASE REPAIR UPGRADE)
 # ======================================================================
 
 import streamlit as st
@@ -9,6 +9,26 @@ from datetime import datetime
 
 # 1. Page Configuration
 st.set_page_config(page_title="Factory ERP Pro", layout="wide", page_icon="🏭")
+
+# --- 📱 PWA MOBILE APPLICATION INJECTION LAYER ---
+st.markdown("""
+    <head>
+        <!-- Mobile Layout Optimization -->
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="theme-color" content="#1e3a8a">
+        <link rel="apple-touch-icon" href="https://icons8.com">
+        
+        <!-- Inline Web Manifest for PWA Detection -->
+        <link rel="manifest" href="data:application/json;base64,ewogICJhb縱9uYW1lIjogIk1hbm5hdCBGaXJlcGxhY2UgRVJQIFBybyIsCiAgInNob3J0X25hbWUiIjogIkZhY3RvcnkgRVJQIiwKICAic3RhcnRfdXJsIjogIi4vIiwK  ImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzBmMTcyYSIsCiAgInRoZW1lX2NvbG9yIjogIiMxZTNhOGEiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJodHRwczovL2ltZy5pY29uczguY29tL2ZsdWVudC8xOTIvMDAwMDAwL2ZhY3RvcnkucG5nIiwKICAgIC2InNpemVzIjogIjE5MngxOTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9wbmciCiAgICB9LAogICAgewogICAgICAic3JjIjogImh0dHBzOi8vaW1nLmljb25zOC5jb20vZmx1ZW50LzUxMi8wMDAwMDAvZmFjdG9yeS5wbmciLAogICAgICAic2l6ZXMiOiAiNTEyeDUxMiIsCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIKICAgIH0KICBdCn0=">
+    </head>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('data:text/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdmZXRjaCcsIGZ1bmN0aW9uKGV2ZW50KSB7IH0pOw==');
+        }
+    </script>
+""", unsafe_allow_html=True)
 
 # --- 🔥 ULTRA-HIGH CONTRAST PREMIUM UI & LOGIN CSS ---
 st.markdown("""
@@ -70,6 +90,11 @@ st.markdown("""
             background: #ffffff !important; border: 1px solid #e2e8f0 !important; border-left: 6px solid #2563eb !important;
             padding: 18px 22px !important; border-radius: 10px !important; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
         }
+        @media (max-width: 768px) {
+            .company-header { font-size: 26px !important; text-align: center !important; }
+            .main-title { font-size: 16px !important; text-align: center !important; }
+            div[data-testid="stMetric"] { padding: 10px 15px !important; margin-bottom: 10px !important; }
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -100,6 +125,13 @@ def ensure_payments_table_exists():
         cursor.execute("ALTER TABLE employee_payments ADD COLUMN given_by_supervisor INTEGER DEFAULT 0")
         conn.commit()
     except sqlite3.OperationalError:
+        pass
+        
+    # 3. 🔥 HARD PATCH FOR SALES TABLE: Agar table mein phone number column missing hai toh use automatic add karega
+    try:
+        cursor.execute("ALTER TABLE sales_new ADD COLUMN party_phone TEXT DEFAULT ''")
+        conn.commit()
+    except sqlite3.OperationalError:
         pass # Column pehle se hi hai toh safe skip karega
         
     conn.close()
@@ -111,11 +143,9 @@ if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 if not st.session_state['logged_in']:
-    # Secure Login Screen Standard Pure Grid Display
     st.markdown('<div style="text-align: center; margin-top: 30px;"><h1 style="color: #1e3a8a; font-weight:900; letter-spacing:1px; margin-bottom:5px;">🏭 MANNAT WIRE NETTING INDUSTRIES</h1><p style="color: #4b5563; font-weight:600;">Enterprise Resource Planning System Secure Gateway</p></div>', unsafe_allow_html=True)
     st.markdown("---")
     
-    # Grid layout positioning alignment
     left_space, login_card, right_space = st.columns([1, 1.2, 1])
     
     with login_card:
