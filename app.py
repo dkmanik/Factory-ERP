@@ -219,12 +219,30 @@ menu = st.sidebar.radio(
 # [PART_1_END]
 # ======================================================================
 # ======================================================================
-# [PART_2_A_START] - Configuration Setup Matrices & Raw Wire Initialization
+# [PART_2_A_START] - Configuration Setup Matrices & Raw Wire Initialization (WITH DATABASE DOWNLOAD DESK)
 # ======================================================================
 
 # --- MASTER SETUP (EMPLOYEE & ROLL RATES) ---
 if menu == "🛠️ Master Setup (Emp & Rates)":
     st.subheader("Configuration Master Setup")
+    
+    # 🔥 NEW FEATURE: CLOUD DATABASE DOWNLOAD BACKUP CENTER
+    st.markdown("### 💾 Cloud Data Safe Export Center (Offline Backup)")
+    try:
+        with open("factory_management.db", "rb") as db_file:
+            st.download_button(
+                label="📥 Download Live Database File (For Offline System)",
+                data=db_file,
+                file_name="factory_management.db",
+                mime="application/x-sqlite3",
+                use_container_width=True,
+                type="primary"
+            )
+        st.caption("ℹ️ Tip: Jab bhi aap online kaam khatam karein, yahan click karke file download karein aur apne offline laptop ke folder me copy-paste kar dein.")
+    except Exception as e:
+        st.error(f"Database read fail: {str(e)}")
+        
+    st.markdown("---")
     col1, col2 = st.columns(2)
     
     with col1:
