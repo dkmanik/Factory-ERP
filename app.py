@@ -1,5 +1,5 @@
 # ======================================================================
-# [PART_1_START] - Security Lock, Login Form & Main Configurations (DATABASE REPAIR UPGRADE)
+# [PART_1_START] - Security Lock, Login Form & Main Configurations (PWA REFINED CLEAN UI)
 # ======================================================================
 
 import streamlit as st
@@ -10,25 +10,32 @@ from datetime import datetime
 # 1. Page Configuration
 st.set_page_config(page_title="Factory ERP Pro", layout="wide", page_icon="🏭")
 
-# --- 📱 PWA MOBILE APPLICATION INJECTION LAYER ---
-st.markdown("""
-    <head>
-        <!-- Mobile Layout Optimization -->
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-        <meta name="theme-color" content="#1e3a8a">
-        <link rel="apple-touch-icon" href="https://icons8.com">
-        
-        <!-- Inline Web Manifest for PWA Detection -->
-        <link rel="manifest" href="data:application/json;base64,ewogICJhb縱9uYW1lIjogIk1hbm5hdCBGaXJlcGxhY2UgRVJQIFBybyIsCiAgInNob3J0X25hbWUiIjogIkZhY3RvcnkgRVJQIiwKICAic3RhcnRfdXJsIjogIi4vIiwK  ImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzBmMTcyYSIsCiAgInRoZW1lX2NvbG9yIjogIiMxZTNhOGEiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJodHRwczovL2ltZy5pY29uczguY29tL2ZsdWVudC8xOTIvMDAwMDAwL2ZhY3RvcnkucG5nIiwKICAgIC2InNpemVzIjogIjE5MngxOTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9wbmciCiAgICB9LAogICAgewogICAgICAic3JjIjogImh0dHBzOi8vaW1nLmljb25zOC5jb20vZmx1ZW50LzUxMi8wMDAwMDAvZmFjdG9yeS5wbmciLAogICAgICAic2l6ZXMiOiAiNTEyeDUxMiIsCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIKICAgIH0KICBdCn0=">
-    </head>
+# --- 📱 PWA MOBILE APPLICATION INJECTION LAYER (CLEAN NO-LEAK FIX) ---
+st.components.v1.html("""
     <script>
+        // Inline web manifest creation directly via JavaScript DOM to prevent Streamlit layout leaking
+        var manifestElement = document.createElement('link');
+        manifestElement.rel = 'manifest';
+        manifestElement.href = 'data:application/json;base64,ewogICJhb縱9uYW1lIjogIk1hbm5hdCBGaXJlcGxhY2UgRVJQIFBybyIsCiAgInNob3J0X25hbWUiIjogIkZhY3RvcnkgRVJQIiwKICAic3RhcnRfdXJsIjogIi4vIiwK  ImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzBmMTcyYSIsCiAgInRoZW1lX2NvbG9yIjogIiMxZTNhOGEiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJodHRwczovL2ltZy5pY29uczguY29tL2ZsdWVudC8xOTIvMDAwMDAwL2ZhY3RvcnkucG5nIiwKICAgIC2InNpemVzIjogIjE5MngxOTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9wbmciCiAgICB9LAogICAgewogICAgICAic3JjIjogImh0dHBzOi8vaW1nLmljb25zOC5jb20vZmx1ZW50LzUxMi8wMDAwMDAvZmFjdG9yeS5wbmciLAogICAgICAic2l6ZXMiOiAiNTEyeDUxMiIsCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIKICAgIH0KICBdCn0=';
+        window.parent.document.head.appendChild(manifestElement);
+
+        // Responsive Viewport injection layer
+        var metaViewport = window.parent.document.createElement('meta');
+        metaViewport.name = 'viewport';
+        metaViewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+        window.parent.document.head.appendChild(metaViewport);
+
+        // Apple PWA meta tag configurations
+        var appleWeb = window.parent.document.createElement('meta');
+        appleWeb.name = 'apple-mobile-web-app-capable';
+        appleWeb.content = 'yes';
+        window.parent.document.head.appendChild(appleWeb);
+
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('data:text/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdmZXRjaCcsIGZ1bmN0aW9uKGV2ZW50KSB7IH0pOw==');
         }
     </script>
-""", unsafe_allow_html=True)
+""", height=0, width=0)
 
 # --- 🔥 ULTRA-HIGH CONTRAST PREMIUM UI & LOGIN CSS ---
 st.markdown("""
