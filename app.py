@@ -9,7 +9,21 @@ from datetime import datetime
 
 # 1. Page Configuration
 st.set_page_config(page_title="Factory ERP Pro", layout="wide", page_icon="🏭")
+# =====================================================================
+# 🎯 DATABASE MEMORY LOCK LAYER (RESTORE & INITIALIZE)
+# =====================================================================
+import os
 
+FACTORY_DB_NAME = 'factory_management.db'
+
+# 1. RESTORE: Agar session state me backup hai, toh use disk par write karein
+if "persistent_factory_db_buffer" in st.session_state:
+    with open(FACTORY_DB_NAME, "wb") as f_dst:
+        f_dst.write(st.session_state["persistent_factory_db_buffer"])
+# 2. FALLBACK: Agar disk par file hai par memory khali hai (first load), toh memory me seed karein
+elif os.path.exists(FACTORY_DB_NAME):
+    with open(FACTORY_DB_NAME, "rb") as f_src:
+        st.session_state["persistent_factory_db_buffer"] = f_src.read()
 # --- 📱 PWA MOBILE APPLICATION INJECTION LAYER (CLEAN NO-LEAK FIX) ---
 st.components.v1.html("""
     <script>
@@ -1240,3 +1254,10 @@ elif menu == "🚨 Dashboard & Payment Alerts":
 # ======================================================================
 # [PART_4_B2_END]
 # ======================================================================
+# =====================================================================
+# 💾 DATABASE BACKUP LAYER (SAVE TO MEMORY AT THE END OF RUN)
+# =====================================================================
+if os.path.exists(FACTORY_DB_NAME):
+    with open(FACTORY_DB_NAME, "rb") as f_src:
+        st.session_state["persistent_factory_db_buffer"] = f_src.read()
+
