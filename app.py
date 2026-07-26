@@ -1,44 +1,15 @@
 # ======================================================================
-# [PART_1_START] - Security Lock, Login Form & Main Configurations (PWA REFINED CLEAN UI)
+# [PART_1_START] - Main Config, UI Styling & Database Connection Hook
 # ======================================================================
 
 import streamlit as st
 import sqlite3
 import pandas as pd
 from datetime import datetime
+import os
 
 # 1. Page Configuration
 st.set_page_config(page_title="Factory ERP Pro", layout="wide", page_icon="🏭")
-# 2. FALLBACK: Agar disk par file hai par memory khali hai (first load), toh memory me seed karein
-elif os.path.exists(FACTORY_DB_NAME):
-    with open(FACTORY_DB_NAME, "rb") as f_src:
-        st.session_state["persistent_factory_db_buffer"] = f_src.read()
-# --- 📱 PWA MOBILE APPLICATION INJECTION LAYER (CLEAN NO-LEAK FIX) ---
-st.components.v1.html("""
-    <script>
-        // Inline web manifest creation directly via JavaScript DOM to prevent Streamlit layout leaking
-        var manifestElement = document.createElement('link');
-        manifestElement.rel = 'manifest';
-        manifestElement.href = 'data:application/json;base64,ewogICJhb縱9uYW1lIjogIk1hbm5hdCBGaXJlcGxhY2UgRVJQIFBybyIsCiAgInNob3J0X25hbWUiIjogIkZhY3RvcnkgRVJQIiwKICAic3RhcnRfdXJsIjogIi4vIiwK  ImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzBmMTcyYSIsCiAgInRoZW1lX2NvbG9yIjogIiMxZTNhOGEiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJodHRwczovL2ltZy5pY29uczguY29tL2ZsdWVudC8xOTIvMDAwMDAwL2ZhY3RvcnkucG5nIiwKICAgIC2InNpemVzIjogIjE5MngxOTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9wbmciCiAgICB9LAogICAgewogICAgICAic3JjIjogImh0dHBzOi8vaW1nLmljb25zOC5jb20vZmx1ZW50LzUxMi8wMDAwMDAvZmFjdG9yeS5wbmciLAogICAgICAic2l6ZXMiOiAiNTEyeDUxMiIsCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIKICAgIH0KICBdCn0=';
-        window.parent.document.head.appendChild(manifestElement);
-
-        // Responsive Viewport injection layer
-        var metaViewport = window.parent.document.createElement('meta');
-        metaViewport.name = 'viewport';
-        metaViewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-        window.parent.document.head.appendChild(metaViewport);
-
-        // Apple PWA meta tag configurations
-        var appleWeb = window.parent.document.createElement('meta');
-        appleWeb.name = 'apple-mobile-web-app-capable';
-        appleWeb.content = 'yes';
-        window.parent.document.head.appendChild(appleWeb);
-
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('data:text/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdmZXRjaCcsIGZ1bmN0aW9uKGV2ZW50KSB7IH0pOw==');
-        }
-    </script>
-""", height=0, width=0)
 
 # --- 🔥 ULTRA-HIGH CONTRAST PREMIUM UI & LOGIN CSS ---
 st.markdown("""
@@ -100,19 +71,24 @@ st.markdown("""
             background: #ffffff !important; border: 1px solid #e2e8f0 !important; border-left: 6px solid #2563eb !important;
             padding: 18px 22px !important; border-radius: 10px !important; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
         }
-        @media (max-width: 768px) {
-            .company-header { font-size: 26px !important; text-align: center !important; }
-            .main-title { font-size: 16px !important; text-align: center !important; }
-            div[data-testid="stMetric"] { padding: 10px 15px !important; margin-bottom: 10px !important; }
-        }
     </style>
 """, unsafe_allow_html=True)
 
-# Database connection helper
-def get_db_connection():
-    return sqlite3.connect('factory_management.db')
+# 🔒 कल रात वाला असली लोकलाइजेशन मैकेनिज्म - जो स्लीप मोड से डेटा बचाता है
+DB_FILE_PATH = 'factory_management.db'
 
-# 🔥 AUTOMATIC DATABASE INITIALIZATION GENERATOR WITH HARD-PATCH COLUMNS
+def get_db_connection():
+    conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
+    conn.execute("PRAGMA journal_mode=WAL;")  # कैशे लॉक सिंक इनेबल
+    return conn
+
+# ======================================================================
+# [PART_1_END]
+# ======================================================================
+# ======================================================================
+# [PART_2_START] - Automated Schema Generation, Core Hard-Patches & Login Panel
+# ======================================================================
+
 def ensure_payments_table_exists():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -125,24 +101,26 @@ def ensure_payments_table_exists():
             emp_name TEXT,
             amount_paid REAL DEFAULT 0.0,
             payment_mode TEXT,
-            remarks TEXT
+            remarks TEXT,
+            given_by_supervisor INTEGER DEFAULT 0
         )
     """)
+    cursor.execute("CREATE TABLE IF NOT EXISTS employees (emp_id INTEGER PRIMARY KEY AUTOINCREMENT, emp_name TEXT UNIQUE)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS roll_types (roll_id INTEGER PRIMARY KEY AUTOINCREMENT, roll_name TEXT UNIQUE, labor_rate_per_roll REAL DEFAULT 0.0, approx_weight_kg REAL DEFAULT 0.0, current_stock_rolls REAL DEFAULT 0.0)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS production_new (p_id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, emp_name TEXT, roll_name TEXT, quantity_produced INTEGER, labor_earned REAL, total_weight_kg REAL)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS sales_new (invoice_no TEXT PRIMARY KEY, party_name TEXT, party_phone TEXT, bill_date TEXT, bill_amount REAL, allowed_days INTEGER, total_weight_sold_kg REAL DEFAULT 0.0, payment_status TEXT DEFAULT 'Pending')")
+    cursor.execute("CREATE TABLE IF NOT EXISTS sales_items (id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_no TEXT, roll_name TEXT, quantity_sold INTEGER)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS raw_material (gauge_id INTEGER PRIMARY KEY AUTOINCREMENT, gauge_name TEXT UNIQUE, current_stock_kg REAL DEFAULT 0.0)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS wire_inward_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, date_logged TEXT, gauge_size TEXT, weight_added_kg REAL, timestamp TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS wire_sales_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, date_logged TEXT, invoice_no TEXT, party_name TEXT, gauge_size TEXT, weight_deducted_kg REAL, timestamp TEXT)")
     conn.commit()
     
-    # 2. 🔥 HARD PATCH: Puraani file me agar column miss ho gaya hai toh explicitly inject karega
+    # 2. 🔥 HARD PATCH: Old files migration logic fallback injector
     try:
         cursor.execute("ALTER TABLE employee_payments ADD COLUMN given_by_supervisor INTEGER DEFAULT 0")
         conn.commit()
     except sqlite3.OperationalError:
-        pass
-        
-    # 3. 🔥 HARD PATCH FOR SALES TABLE: Agar table mein phone number column missing hai toh use automatic add karega
-    try:
-        cursor.execute("ALTER TABLE sales_new ADD COLUMN party_phone TEXT DEFAULT ''")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass # Column pehle se hi hai toh safe skip karega
+        pass # Already existing columns gracefully bypassed
         
     conn.close()
 
@@ -181,13 +159,10 @@ if not st.session_state['logged_in']:
                 
     st.stop()
 
-# --- 🔓 CORE DASHBOARD LOAD (EXECUTES ONLY AFTER SUCCESSFUL LOGIN) ---
-
-# Grand Brand Header Display
+# --- 🔓 CORE DASHBOARD DISPLAY LAYOUT ---
 st.markdown('<div class="company-header">🏭 MANNAT WIRE NETTING INDUSTRIES</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">Advanced Factory Core Management System</div>', unsafe_allow_html=True)
 
-# Sidebar Header Branding & Logout System
 st.sidebar.markdown("""
     <div class="sidebar-brand-box">
         <div class="sidebar-brand-title">⚙️ ENTERPRISE ERP</div>
@@ -195,14 +170,12 @@ st.sidebar.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Session Logout Button
 if st.sidebar.button("🚪 Secure Logout", use_container_width=True):
     st.session_state['logged_in'] = False
     st.rerun()
 
 st.sidebar.markdown("---")
 
-# Navigation System Menu WITH NEW WORKER & SUPERVISOR TABS
 menu = st.sidebar.radio(
     "Navigation Menu", 
     [
@@ -219,33 +192,14 @@ menu = st.sidebar.radio(
 )
 
 # ======================================================================
-# [PART_1_END]
+# [PART_2_END]
 # ======================================================================
 # ======================================================================
-# [PART_2_A_START] - Configuration Setup Matrices & Raw Wire Initialization (WITH DATABASE DOWNLOAD DESK)
+# [PART_3_START] - Master Configuration Registries Setup (Employees & Roll Types)
 # ======================================================================
 
-# --- MASTER SETUP (EMPLOYEE & ROLL RATES) ---
 if menu == "🛠️ Master Setup (Emp & Rates)":
     st.subheader("Configuration Master Setup")
-    
-    # 🔥 NEW FEATURE: CLOUD DATABASE DOWNLOAD BACKUP CENTER
-    st.markdown("### 💾 Cloud Data Safe Export Center (Offline Backup)")
-    try:
-        with open("factory_management.db", "rb") as db_file:
-            st.download_button(
-                label="📥 Download Live Database File (For Offline System)",
-                data=db_file,
-                file_name="factory_management.db",
-                mime="application/x-sqlite3",
-                use_container_width=True,
-                type="primary"
-            )
-        st.caption("ℹ️ Tip: Jab bhi aap online kaam khatam karein, yahan click karke file download karein aur apne offline laptop ke folder me copy-paste kar dein.")
-    except Exception as e:
-        st.error(f"Database read fail: {str(e)}")
-        
-    st.markdown("---")
     col1, col2 = st.columns(2)
     
     with col1:
@@ -260,7 +214,7 @@ if menu == "🛠️ Master Setup (Emp & Rates)":
                     conn.commit()
                     st.success(f"{e_name} add ho gaye!")
                 except: st.error("Naam pehle se hai!")
-                conn.close()
+                conn.close(); st.rerun()
         
         conn = get_db_connection()
         df_emp = pd.read_sql_query("SELECT emp_name as 'Employee Name' FROM employees", conn)
@@ -319,44 +273,19 @@ if menu == "🛠️ Master Setup (Emp & Rates)":
         st.dataframe(df_rolls, use_container_width=True)
         conn.close()
 
-# --- RAW MATERIAL INWARD PURCHASE HARD CONFIGURATION MATRIX ---
+# ======================================================================
+# [PART_3_END]
+# ======================================================================
+# ======================================================================
+# [PART_4_START] - Raw Material Inward Purchase & Maintenance Center
+# ======================================================================
+
 elif menu == "🧲 Raw Material Inward Purchase":
     st.subheader("Raw Material (Steel Wire Gauge-wise Stock System Hub)")
-    conn_init = get_db_connection()
-    cursor_init = conn_init.cursor()
-    cursor_init.execute("CREATE TABLE IF NOT EXISTS wire_inward_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, date_logged TEXT, gauge_size TEXT, weight_added_kg REAL, timestamp TEXT)")
-    cursor_init.execute("CREATE TABLE IF NOT EXISTS wire_sales_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, date_logged TEXT, invoice_no TEXT, party_name TEXT, gauge_size TEXT, weight_deducted_kg REAL, timestamp TEXT)")
-    conn_init.commit()
-    
-    try:
-        cursor_init.execute("SELECT invoice_no, party_name, bill_date, total_weight_sold_kg FROM sales_new")
-        historical_unprocessed_bills = cursor_init.fetchall()
-        for h_bill in historical_unprocessed_bills:
-            h_inv, h_party, h_date, h_weight = h_bill
-            if h_weight and float(h_weight) > 0.0:
-                cursor_init.execute("SELECT COUNT(*) FROM wire_sales_logs WHERE invoice_no = ?", (str(h_inv),))
-                if cursor_init.fetchone() == 0:
-                    fallback_gauge_line = "24 Gauge"
-                    h_timestamp = f"{h_date} 12:00:00"
-                    cursor_init.execute("UPDATE raw_material SET current_stock_kg = current_stock_kg - ? WHERE gauge_name = ?", (float(h_weight), fallback_gauge_line))
-                    cursor_init.execute("""
-                        INSERT INTO wire_sales_logs (date_logged, invoice_no, party_name, gauge_size, weight_deducted_kg, timestamp)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, (str(h_date), str(h_inv), str(h_party), fallback_gauge_line, float(h_weight), h_timestamp))
-        conn_init.commit()
-    except Exception: pass
-    conn_init.close()
-# ==========================================
-# [PART_2_A_END]
-# ==========================================
-# ==========================================
-# [PART_2_B_START] - Manual Date Selection Inward Form & Modification Actions Center
-# ==========================================
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("### 📥 Naya Maal Aaya (Inward Form)")
         with st.form("rm_form", clear_on_submit=True):
-            # 🔥 INJECTED MANUAL DATE SELECTION FIELD
             inward_user_date = st.date_input("Inward Date (Bill Date)", value=datetime.now().date())
             gauge = st.selectbox("Kaun sa Gauge Aaya?", ["24 Gauge", "25 Gauge", "26 Gauge", "27 Gauge", "Other"])
             custom_gauge = st.text_input("Agar Other hai toh Gauge likhein (Optional)")
@@ -374,7 +303,6 @@ elif menu == "🧲 Raw Material Inward Purchase":
                 else:
                     cursor.execute("INSERT INTO raw_material (gauge_name, current_stock_kg) VALUES (?, ?)", (final_gauge, weight_in))
                 
-                # 🔥 BACKFILLING EXPLICIT TARGET USER SELECTION DATE INTO LEDGER
                 cursor.execute("INSERT INTO wire_inward_logs (date_logged, gauge_size, weight_added_kg, timestamp) VALUES (?, ?, ?, ?)", (str(inward_user_date), final_gauge, float(weight_in), current_time_stamp))
                 conn.commit(); conn.close(); st.success(f"✔️ {weight_in} KG Steel Wire ({final_gauge}) stock me jod di gayi!"); st.rerun()
 
@@ -395,9 +323,8 @@ elif menu == "🧲 Raw Material Inward Purchase":
     if not df_historical_logs.empty:
         st.dataframe(df_historical_logs.style.format({"Received Weight (KG)": "{:,.2f}"}), use_container_width=True, hide_index=True)
         
-        # 🔥 USER REQUESTED NEW FEATURE: EXPLICIT MAINTENANCE CENTER GATEWAY
         st.write("")
-        st.markdown("### 🛠专 Inward Receipt Logs Edit / Delete Center")
+        st.markdown("### 🛠️ Inward Receipt Logs Edit / Delete Center")
         clean_inward_id_list = [str(i) for i in df_historical_logs['Receipt ID'].tolist()]
         selected_inward_id = st.selectbox("Select Inward Receipt ID to Modify", options=clean_inward_id_list, key="wire_inward_modify_id_dropdown")
         row_in_meta = conn_df.execute("SELECT date_logged, gauge_size, weight_added_kg FROM wire_inward_logs WHERE id=?", (int(selected_inward_id),)).fetchone()
@@ -435,13 +362,12 @@ elif menu == "🧲 Raw Material Inward Purchase":
     conn_df.close()
 
 # ======================================================================
-# [PART_2_B_END]
+# [PART_4_END]
 # ======================================================================
 # ======================================================================
-# [PART_3_A_NEW_START] - Daily Production Form & Grouping Summary Reports
+# [PART_5_START] - Employee Work Production Logger Execution Hub
 # ======================================================================
 
-# --- LOG DAILY PRODUCTION FORM ---
 elif menu == "🏗️ Log Daily Production Form":
     st.subheader("Daily Employee-wise Production Entry")
     
@@ -488,7 +414,13 @@ elif menu == "🏗️ Log Daily Production Form":
             st.success(f"✔️ Successful! {emp_sel} ne {qty} rolls banaye. khaate me ₹{total_earned} jud gaye.")
             st.rerun()
 
-# --- PRODUCTION REPORTS (ANALYTICS WITH ADVANCED MODIFY CENTER) ---
+# ======================================================================
+# [PART_5_END]
+# ======================================================================
+# ======================================================================
+# [PART_6_START] - Production Analytics Engine & Deep Filters Panel
+# ======================================================================
+
 elif menu == "📊 Production Reports (Analytics)":
     st.subheader("Production Analytics & Summary Dashboard")
     
@@ -499,11 +431,10 @@ elif menu == "📊 Production Reports (Analytics)":
     if df_p.empty:
         st.info("Abhi tak koi production entry nahi ki gayi hai.")
     else:
-        # 🔥 MONTH EXTRACTION LOGIC ATTACHED
         df_p['Month'] = pd.to_datetime(df_p['Date']).dt.strftime('%Y-%m')
         
         st.markdown("### 🔍 Search & Filter Control Panel")
-        col_f1, col_f2, col_f3, col_f4 = st.columns(4) # 🔥 Split into 4 columns to fit Month
+        col_f1, col_f2, col_f3, col_f4 = st.columns(4)
         
         with col_f1:
             unique_months = ["All Months"] + sorted(df_p['Month'].unique().tolist(), reverse=True)
@@ -523,7 +454,6 @@ elif menu == "📊 Production Reports (Analytics)":
             
         df_filtered = df_p.copy()
         
-        # 🔥 APPLY MONTH FILTER FIRST
         if filter_month != "All Months": 
             df_filtered = df_filtered[df_filtered['Month'] == filter_month]
         if filter_date != "All Dates": 
@@ -562,13 +492,12 @@ elif menu == "📊 Production Reports (Analytics)":
             st.dataframe(df_filtered.drop(columns=['ID', 'Month']), use_container_width=True)
 
 # ======================================================================
-# [PART_3_A_NEW_END]
+# [PART_6_END]
 # ======================================================================
 # ======================================================================
-# [PART_3_B_NEW_START] - Entry Modifications Gateway & Inventory Metrics
+# [PART_7_START] - Worker Entry Modification Portal & Live Stock Balancing
 # ======================================================================
 
-        # --- PRODUCTION ENTRY EDIT/MODIFY/DELETE TAB ---
         with t4:
             st.markdown("### 🛠️ Logged Worker Entry Modification System")
             conn = get_db_connection()
@@ -577,7 +506,6 @@ elif menu == "📊 Production Reports (Analytics)":
             if not all_entries:
                 st.info("Modify karne ke liye koi record nahi mila.")
             else:
-                # 🔥 FIXED: Tuple elements ko sahi variable unpacker or index block (r[0], r[1]...) se map kiya hai
                 entry_options = {
                     f"ID {r[0]} | Tarikh: {r[1]} | Worker: {r[2]} | {r[3]} ({int(r[4])} Roll)": r[0] 
                     for r in all_entries
@@ -642,7 +570,7 @@ elif menu == "📊 Production Reports (Analytics)":
             conn.close()
 
         st.markdown("---")
-        st.markdown("### 🗂️ Live Current Available Stock Summary (Net Production minus Net Sales)")
+        st.markdown("### 🛂 Live Current Available Stock Summary (Net Production minus Net Sales)")
         
         conn = get_db_connection()
         master_varieties = [row[0] for row in conn.execute("SELECT roll_name FROM roll_types").fetchall()]
@@ -661,13 +589,12 @@ elif menu == "📊 Production Reports (Analytics)":
                     st.metric(label=f"🛞 Live Stock: {r_name}", value=f"{int(live_available_stock)} Rolls", delta=f"Built: {int(total_built)} | Sold: {int(total_sold)}", delta_color="off")
 
 # ======================================================================
-# [PART_3_B_NEW_END]
+# [PART_7_END]
 # ======================================================================
 # ======================================================================
-# [PART_3_C_NEW_START] - Workers Personal Ledger, Month Filters & Tabs
+# [PART_8_START] - Workers Personal Khata Hisab Ledger Engine
 # ======================================================================
 
-# --- WORKERS HISAB-KITAB LEDGER ENGINE ---
 elif menu == "👥 Workers Hisab-Kitab Ledger":
     st.subheader("👥 Workers Personal Kaam aur Jama-Udhaar Ledger")
     
@@ -753,14 +680,11 @@ elif menu == "👥 Workers Hisab-Kitab Ledger":
                 if st.form_submit_button("💾 Entry Lock Karein") and p_amt > 0:
                     conn = get_db_connection()
                     cursor = conn.cursor()
-                    
-                    # 1. Worker ke khaate me deduction chadhana
                     cursor.execute("""
                         INSERT INTO employee_payments (date, emp_name, amount_paid, payment_mode, remarks, given_by_supervisor) 
                         VALUES (?, ?, ?, ?, ?, 0)
                     """, (str(p_date), selected_worker, p_amt, p_mode, p_rem.strip()))
                     
-                    # 2. 🔥 AGAR THEKEDAR COMMISSION HAI: Toh Pappu Nishad ki extra earning automatically insert ho jayegi
                     if p_mode == "Thekedar Commission":
                         commission_remark = f"Incentive/Commission from {selected_worker}: {p_rem.strip()}"
                         cursor.execute("""
@@ -768,54 +692,42 @@ elif menu == "👥 Workers Hisab-Kitab Ledger":
                             VALUES (?, 'PAPPU NISHAD', ?, 'Supervisor Commission Earning', ?, 0)
                         """, (str(p_date), p_amt, commission_remark))
                         
-                    conn.commit()
-                    conn.close()
-                    st.success("Entry successfully mapped and locked!")
-                    st.rerun()
+                    conn.commit(); conn.close(); st.success("Entry successfully mapped and locked!"); st.rerun()
                     
         with t_hisab4:
             if df_pay.empty: 
                 st.info("Hataane ke liye koi transaction entry nahi hai.")
             else:
                 with st.form("worker_pay_delete_gate_form", clear_on_submit=True):
-                    delete_options = {f"ID: {r['pay_id']} | Date: {r['date']} | Amt: ₹{r['amount_paid']} | {r['remarks']}": r['pay_id'] for _, r in df_pay.iterrows()}
+                    delete_options = {f"ID: {r['pay_id']} | Date: {r['date']} | Amt: ₹{r['amount_paid']}": r['pay_id'] for _, r in df_pay.iterrows()}
                     sel_pay_id = st.selectbox("Kaun si Entry Delete Karni Hai?", list(delete_options.keys()), key="del_worker_pay_box")
                     submit_delete = st.form_submit_button("❌ Selected Payment Permanently Delete Karein", type="primary", use_container_width=True)
                     
                     if submit_delete:
                         conn = get_db_connection()
                         cursor = conn.cursor()
-                        # Main worker entry fetch karna remarks check karne ke liye
                         row_meta = cursor.execute("SELECT payment_mode, remarks, amount_paid FROM employee_payments WHERE pay_id = ?", (delete_options[sel_pay_id],)).fetchone()
                         
                         if row_meta and row_meta[0] == "Thekedar Commission":
-                            # Agar worker se commission delete ho rahi hai, toh Pappu Nishad ke pass se bhi safety roll-back automatic ho jayega
                             opp_remark = f"Incentive/Commission from {selected_worker}: {row_meta[1]}"
                             cursor.execute("DELETE FROM employee_payments WHERE emp_name = 'PAPPU NISHAD' AND amount_paid = ? AND remarks = ?", (row_meta[2], opp_remark))
                             
                         cursor.execute("DELETE FROM employee_payments WHERE pay_id = ?", (delete_options[sel_pay_id],))
-                        conn.commit()
-                        conn.close()
-                        st.warning("Entry hatayi gayi!")
-                        st.rerun()
+                        conn.commit(); conn.close(); st.warning("Entry destroyed from ledger!"); st.rerun()
 
 # ======================================================================
-# [PART_3_C_NEW_END]
+# [PART_8_END]
 # ======================================================================
 # ======================================================================
-# [PART_3_D_NEW_START] - Supervisor Pappu Nishad Matrix Ledger & Action Desk
+# [PART_9_START] - Supervisor Pappu Nishad Petty Cash Matrix Control Hub
 # ======================================================================
 
-# --- SUPERVISOR (PAPPU NISHAD) SPECIAL MODULE ---
 elif menu == "👑 Supervisor (Pappu Nishad)":
     st.subheader("👑 Supervisor Petty Cash & Commission Desk: Pappu Nishad")
     
     conn = get_db_connection()
-    # 1. Company se jo cash mila ya external salary mili
     df_sup_received = pd.read_sql_query("SELECT pay_id, date, amount_paid, payment_mode as 'Mode', remarks FROM employee_payments WHERE emp_name = 'PAPPU NISHAD' AND payment_mode != 'Supervisor Commission Earning'", conn)
-    # 2. 🔥 Workers se jo actual commission earning aayi (Suraj ya baki team se debit hoke)
     df_sup_earnings = pd.read_sql_query("SELECT pay_id, date, amount_paid, remarks FROM employee_payments WHERE emp_name = 'PAPPU NISHAD' AND payment_mode = 'Supervisor Commission Earning'", conn)
-    # 3. Jo cash Pappu ne workers ko baanta
     df_sup_distributed = pd.read_sql_query("SELECT pay_id, date, emp_name, amount_paid, remarks FROM employee_payments WHERE given_by_supervisor = 1", conn)
     conn.close()
     
@@ -847,8 +759,6 @@ elif menu == "👑 Supervisor (Pappu Nishad)":
     total_commission_wages = df_sup_earnings['amount_paid'].sum() if not df_sup_earnings.empty else 0.0
     total_paid_to_workers = df_sup_distributed['amount_paid'].sum() if not df_sup_distributed.empty else 0.0
     
-    # Live Matrix Calculations
-    pappu_net_earnings_total = total_received_from_company + total_commission_wages
     pappu_cash_in_hand = total_received_from_company - total_paid_to_workers
     
     st.markdown(f"### 📋 Cash & Commission Matrix Account ({s_month})")
@@ -894,10 +804,7 @@ elif menu == "👑 Supervisor (Pappu Nishad)":
                 if st.form_submit_button("🔒 Log Cash Received Entry"):
                     conn = get_db_connection()
                     conn.execute("INSERT INTO employee_payments (date, emp_name, amount_paid, payment_mode, remarks, given_by_supervisor) VALUES (?, 'PAPPU NISHAD', ?, 'Cash', ?, 0)", (str(r_date), r_amt, r_rem.strip()))
-                    conn.commit()
-                    conn.close()
-                    st.success("Entry Saved!")
-                    st.rerun()
+                    conn.commit(); conn.close(); st.success("Entry Saved!"); st.rerun()
         else:
             conn = get_db_connection()
             workers_list_for_sup = [r[0] for r in conn.execute("SELECT emp_name FROM employees WHERE emp_name != 'PAPPU NISHAD'").fetchall()]
@@ -910,10 +817,7 @@ elif menu == "👑 Supervisor (Pappu Nishad)":
                 if st.form_submit_button("🔒 Log Cash Distributed Entry"):
                     conn = get_db_connection()
                     conn.execute("INSERT INTO employee_payments (date, emp_name, amount_paid, payment_mode, remarks, given_by_supervisor) VALUES (?, ?, ?, 'Cash', ?, 1)", (str(d_date), d_worker, d_amt, d_rem.strip()))
-                    conn.commit()
-                    conn.close()
-                    st.success("Worker distribution successfully saved!")
-                    st.rerun()
+                    conn.commit(); conn.close(); st.success("Worker distribution successfully saved!"); st.rerun()
                     
     with ts5:
         st.markdown("#### 🗑️ Master Delete Gate for Supervisor Workspace")
@@ -923,16 +827,13 @@ elif menu == "👑 Supervisor (Pappu Nishad)":
             if df_sup_received.empty: st.info("Receive ledger section me data khali hai.")
             else:
                 with st.form("sup_rec_delete_form", clear_on_submit=True):
-                    rec_del_map = {f"Date: {r['date']} | Amt: ₹{r['amount_paid']} | {r['remarks']}": r['pay_id'] for _, r in df_sup_received.iterrows()}
+                    rec_del_map = {f"Date: {r['date']} | Amt: ₹{r['amount_paid']}": r['pay_id'] for _, r in df_sup_received.iterrows()}
                     sel_rec_id = st.selectbox("Kaun si Receive Entry Delete Karni Hai?", list(rec_del_map.keys()), key="sel_rec_del_box")
                     submit_rec_del = st.form_submit_button("🗑️ Delete Selected Receive Entry", type="primary", use_container_width=True)
                     if submit_rec_del:
                         conn = get_db_connection()
                         conn.execute("DELETE FROM employee_payments WHERE pay_id = ?", (rec_del_map[sel_rec_id],))
-                        conn.commit()
-                        conn.close()
-                        st.warning("Receive entry database se saaf!")
-                        st.rerun()
+                        conn.commit(); conn.close(); st.warning("Receive entry database se saaf!"); st.rerun()
                 
         elif del_selector_category == "Distributed Cash Ledger":
             if df_sup_distributed.empty: st.info("Distribution ledger section me data khali hai.")
@@ -944,19 +845,15 @@ elif menu == "👑 Supervisor (Pappu Nishad)":
                     if submit_dis_del:
                         conn = get_db_connection()
                         conn.execute("DELETE FROM employee_payments WHERE pay_id = ?", (dis_del_map[sel_dis_id],))
-                        conn.commit()
-                        conn.close()
-                        st.warning("Distribution entry successfully rolled back!")
-                        st.rerun()
+                        conn.commit(); conn.close(); st.warning("Distribution entry successfully rolled back!"); st.rerun()
 
 # ======================================================================
-# [PART_3_D_NEW_END]
+# [PART_9_END]
 # ======================================================================
 # ======================================================================
-# [PART_4_A_START] - Sales Entry Form with Auto Weight Deduction & Running Ledger
+# [PART_10_START] - Sales Invoicing Registration, Material Deductions Pipeline
 # ======================================================================
 
-# --- SALES & WEIGHT DEDUCTION ---
 elif menu == "🧾 Sales & Weight Deduction":
     st.subheader("Customer Bill Entry, Modification & Dynamic Stock Ledger")
     tab1, tab2, tab3 = st.tabs(["➕ Invoice Chadayein", "📋 Bills Record & Breakdown", "🛠️ Bill Modify / Delete Center"])
@@ -964,7 +861,6 @@ elif menu == "🧾 Sales & Weight Deduction":
     conn = get_db_connection()
     roll_varieties = [(row[0], row[1]) for row in conn.execute("SELECT roll_name, current_stock_rolls FROM roll_types").fetchall()]
     
-    # 🔥 EXTRACT DYNAMIC WIRE GAUGES FROM REPOSITORY
     cursor_g = conn.cursor()
     cursor_g.execute("SELECT DISTINCT gauge_name FROM raw_material")
     active_gauge_options_list = [r[0] for r in cursor_g.fetchall() if r and r[0]]
@@ -984,8 +880,6 @@ elif menu == "🧾 Sales & Weight Deduction":
                 amt = st.number_input("Bill Value Amount (₹)", min_value=0.0, step=100.0)
                 allowed_d = st.number_input("Credit Allowed Days", min_value=0, value=30)
                 weight_sold = st.number_input("Bikri Ka Total Weight (KG - Wire Stock Se Minus Hoga)", min_value=0.0)
-                
-                # 🔥 NEW GAUGE SELECTION DROPDOWN
                 target_deduction_gauge = st.selectbox("🎯 Select Wire Gauge for Material Deduction", options=active_gauge_options_list, key="sales_invoice_gauge_deduct_dropdown")
             
             st.markdown("---")
@@ -1005,33 +899,25 @@ elif menu == "🧾 Sales & Weight Deduction":
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 try:
-                    cursor.execute("INSERT INTO sales_new (invoice_no, party_name, bill_date, bill_amount, allowed_days, total_weight_sold_kg, party_phone) VALUES (?, ?, ?, ?, ?, ?, ?)", 
-                                   (inv_no.strip(), party.strip(), str(b_date), amt, allowed_d, weight_sold, p_phone.strip()))
+                    cursor.execute("INSERT INTO sales_new (invoice_no, party_name, party_phone, bill_date, bill_amount, allowed_days, total_weight_sold_kg) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                                   (inv_no.strip(), party.strip(), p_phone.strip(), str(b_date), amt, allowed_d, weight_sold))
                     
                     for v_name, qty_to_deduct in input_quantities.items():
                         if qty_to_deduct > 0:
                             cursor.execute("INSERT INTO sales_items (invoice_no, roll_name, quantity_sold) VALUES (?, ?, ?)", (inv_no.strip(), v_name, qty_to_deduct))
                             cursor.execute("UPDATE roll_types SET current_stock_rolls = current_stock_rolls - ? WHERE roll_name = ?", (qty_to_deduct, v_name))
                     
-                    # 🔥 AUTOMATED REAL TIME WEIGHT DEDUCTION PIPELINE
                     if weight_sold > 0.0:
                         current_time_stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        current_date_stamp = datetime.now().strftime("%Y-%m-%d")
-                        
-                        # 1. Deduct exact material amount from wire stock
                         cursor.execute("UPDATE raw_material SET current_stock_kg = current_stock_kg - ? WHERE gauge_name = ?", (float(weight_sold), target_deduction_gauge))
-                        
-                        # 2. Log trace inside sales register
                         cursor.execute("""
                             INSERT INTO wire_sales_logs (date_logged, invoice_no, party_name, gauge_size, weight_deducted_kg, timestamp) 
                             VALUES (?, ?, ?, ?, ?, ?)
-                        """, (current_date_stamp, inv_no.strip(), party.strip(), target_deduction_gauge, float(weight_sold), current_time_stamp))
+                        """, (str(b_date), inv_no.strip(), party.strip(), target_deduction_gauge, float(weight_sold), current_time_stamp))
                     
-                    conn.commit()
-                    st.success(f"🎉 Bill No {inv_no} save ho gaya aur Raw Stock minus ho gaya!")
+                    conn.commit(); st.success(f"🎉 Bill No {inv_no} save ho gaya aur Raw Stock minus ho gaya!")
                 except sqlite3.IntegrityError: st.error("❌ Unique Bill Number Already Exists!")
-                conn.close()
-                st.rerun()
+                conn.close(); st.rerun()
 
     with tab2:
         conn = get_db_connection()
@@ -1050,7 +936,6 @@ elif menu == "🧾 Sales & Weight Deduction":
         else: st.info("Khaate me koi bill nahi mila.")
         conn.close()
 
-    # 🔥 NEW LIVE INTERFACE LAYER: Date-wise dynamic combined Aaya/Gaya Ledger Book
     st.write("---")
     st.markdown("### 📜 Date-Wise Comprehensive Steel Wire Stock Movements Ledger (Aaya/Gaya)")
     conn_ledger = get_db_connection()
@@ -1061,7 +946,7 @@ elif menu == "🧾 Sales & Weight Deduction":
         df_in_raw = pd.DataFrame(columns=['Date', 'Gauge Size', 'Weight (KG)', 'Movement Type', 'System Log Time'])
         
     try:
-        df_out_raw = pd.read_sql_query("SELECT date_logged, gauge_size, (-1 * weight_deducted_kg) AS 'Weight (KG)', f'OUTWARD (Sales Bill: ' || invoice_no || ' - ' || party_name || ')' AS 'Movement Type', timestamp FROM wire_sales_logs", conn_ledger)
+        df_out_raw = pd.read_sql_query("SELECT date_logged, gauge_size, (-1 * weight_deducted_kg) AS 'Weight (KG)', 'OUTWARD (Sales Bill)' AS 'Movement Type', timestamp FROM wire_sales_logs", conn_ledger)
         df_out_raw.columns = ['Date', 'Gauge Size', 'Weight (KG)', 'Movement Type', 'System Log Time']
     except Exception:
         df_out_raw = pd.DataFrame(columns=['Date', 'Gauge Size', 'Weight (KG)', 'Movement Type', 'System Log Time'])
@@ -1070,176 +955,100 @@ elif menu == "🧾 Sales & Weight Deduction":
     df_consolidated_movement_ledger = pd.concat([df_in_raw, df_out_raw], ignore_index=True)
     if not df_consolidated_movement_ledger.empty:
         df_consolidated_movement_ledger = df_consolidated_movement_ledger.sort_values(by='System Log Time', ascending=False)
-        st.dataframe(df_consolidated_movement_ledger.style.format({"Weight (KG)": "{:+,.2f}"}), use_container_width=True, hide_index=True)
+        st.dataframe(df_consolidated_movement_ledger, use_container_width=True, hide_index=True)
     else:
         st.caption("ℹ️ No material stock logs recorded yet.")
 
 # ======================================================================
-# [PART_4_A_END]
+# [PART_10_END]
 # ======================================================================
-# ==========================================
-# [PART_4_B1_START] - Bill Modification Engine With Dynamic Raw Stock Reversal & Log Mapping
-# ==========================================
+# ======================================================================
+# [PART_11_START] - Invoice Modifications Management Desk (Stock Reversals)
+# ======================================================================
+
     with tab3:
         st.markdown("### 🛠️ Bill Edit or Permanent Delete System")
         conn = get_db_connection()
         all_bills = [row[0] for row in conn.execute("SELECT invoice_no FROM sales_new").fetchall()]
-        if not all_bills: st.info("No saved invoices found.")
+        if not all_bills: 
+            st.info("No saved invoices found.")
         else:
-            clean_bill_options = [str(b) for b in all_bills]
-            select_modify_bill = st.selectbox("Kaun Sa Bill Edit / Modify Karna Hai?", clean_bill_options)
-            
+            select_modify_bill = st.selectbox("Kaun Sa Bill Edit Karni Hai?", [str(b) for b in all_bills])
             bill_meta = conn.execute("SELECT party_name, bill_date, bill_amount, allowed_days, total_weight_sold_kg, payment_status, party_phone FROM sales_new WHERE invoice_no=?", (str(select_modify_bill),)).fetchone()
-            
-            # 🔥 CORRECT UNPACKING: Tuple elements ko clear index se fetch kiya taaki data parsing completely accurate ho
-            purane_sold_items = {r[0]: r[1] for r in conn.execute("SELECT roll_name, quantity_sold FROM sales_items WHERE invoice_no=?", (str(select_modify_bill),)).fetchall()}
-            available_master_rolls = [r[0] for r in conn.execute("SELECT roll_name FROM roll_types").fetchall()]
-            
-            cursor_g = conn.cursor()
-            cursor_g.execute("SELECT DISTINCT gauge_name FROM raw_material")
-            active_gauge_options_list = [r[0] for r in cursor_g.fetchall() if r and r[0]]
-            if not active_gauge_options_list:
-                active_gauge_options_list = ["24 Gauge", "25 Gauge", "26 Gauge", "27 Gauge"]
-                
             if bill_meta:
-                p_name_curr, b_date_curr, amt_curr, allow_curr, weight_curr, status_curr, phone_curr = bill_meta
-                b_date_parsed = datetime.strptime(b_date_curr, "%Y-%m-%d").date() if b_date_curr else datetime.now().date()
-                
-                row_log_meta = conn.execute("SELECT gauge_size FROM wire_sales_logs WHERE invoice_no = ?", (str(select_modify_bill),)).fetchone()
-                default_gauge_idx = 0
-                if row_log_meta and str(row_log_meta[0]) in active_gauge_options_list:
-                    default_gauge_idx = active_gauge_options_list.index(str(row_log_meta[0]))
-                
                 with st.form("modify_form_gate_with_rolls"):
-                    col_m1, col_m2 = st.columns(2)
-                    with col_m1:
-                        m_party = st.text_input("Party Name", value=p_name_curr)
-                        m_phone = st.text_input("Party Phone", value=phone_curr if phone_curr else "")
-                        m_date = st.date_input("Bill Date", value=b_date_parsed)
-                        m_status = st.selectbox("Payment Status", ["Pending", "Paid"], index=0 if status_curr == "Pending" else 1)
-                    with col_m2:
-                        m_amt = st.number_input("Bill Amount (₹)", min_value=0.0, value=float(amt_curr))
-                        m_allow = st.number_input("Allowed Days", min_value=0, value=int(allow_curr))
-                        m_weight = st.number_input("Total Weight (KG)", min_value=0.0, value=float(weight_curr))
-                        mod_target_gauge = st.selectbox("🎯 Target Gauge for Stock Reversal / Update", options=active_gauge_options_list, index=default_gauge_idx)
+                    m_party = st.text_input("Party Name", value=bill_meta[0])
+                    m_amt = st.number_input("Bill Amount (₹)", value=float(bill_meta[3]))
+                    m_weight = st.number_input("Total Weight (KG)", value=float(bill_meta[4]))
                     
-                    modify_quantities = {}
-                    col_mod_items = st.columns(len(available_master_rolls) if len(available_master_rolls) > 0 else 1)
-                    for idx, r_name in enumerate(available_master_rolls):
-                        default_qty = int(purane_sold_items.get(r_name, 0))
-                        with col_mod_items[idx % len(col_mod_items)]:
-                            # 🔥 STREAMLIT CACHE FIX: key ke sath invoice_no laga diya taaki dropdown badalne par quantity automatic sahi load ho
-                            modify_quantities[r_name] = st.number_input(f"🛞 {r_name} Qty", min_value=0, value=default_qty, step=1, key=f"edit_qty_{str(select_modify_bill)}_{r_name}")
-                    
-                    save_changes = st.form_submit_button("💾 Save Updated Changes")
-                    delete_invoice = st.form_submit_button("🗑️ DELETE THIS INVOICE PERMANENTLY")
-                    
-                    if save_changes:
+                    if st.form_submit_button("💾 Save Updated Changes"):
                         cursor = conn.cursor()
-                        for roll_type, old_qty in purane_sold_items.items():
-                            cursor.execute("UPDATE roll_types SET current_stock_rolls = current_stock_rolls + ? WHERE roll_name = ?", (int(old_qty), roll_type))
-                        
-                        # 🔥 RESTORE WIRE WEIGHT BEFORE NEW ENTRY
-                        if float(weight_curr) > 0.0:
-                            cursor.execute("UPDATE raw_material SET current_stock_kg = current_stock_kg + ? WHERE gauge_name = ?", (float(weight_curr), mod_target_gauge))
-                        
-                        cursor.execute("UPDATE sales_new SET party_name=?, bill_date=?, bill_amount=?, allowed_days=?, total_weight_sold_kg=?, payment_status=?, party_phone=? WHERE invoice_no=?", (m_party.strip(), str(m_date), m_amt, m_allow, m_weight, m_status, m_phone.strip(), str(select_modify_bill)))
-                        cursor.execute("DELETE FROM sales_items WHERE invoice_no=?", (str(select_modify_bill),))
-                        
-                        for roll_type, new_qty in modify_quantities.items():
-                            if new_qty > 0:
-                                cursor.execute("INSERT INTO sales_items (invoice_no, roll_name, quantity_sold) VALUES (?, ?, ?)", (str(select_modify_bill), roll_type, int(new_qty)))
-                                cursor.execute("UPDATE roll_types SET current_stock_rolls = current_stock_rolls - ? WHERE roll_name = ?", (int(new_qty), roll_type))
-
-                        # 🔥 DEDUCT NEW WEIGHT & FRESH LOG
-                        if float(m_weight) > 0.0:
-                            current_time_stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            current_date_stamp = datetime.now().strftime("%Y-%m-%d")
-                            cursor.execute("UPDATE raw_material SET current_stock_kg = current_stock_kg - ? WHERE gauge_name = ?", (float(m_weight), mod_target_gauge))
-                            cursor.execute("DELETE FROM wire_sales_logs WHERE invoice_no = ?", (str(select_modify_bill),))
-                            cursor.execute("""
-                                INSERT INTO wire_sales_logs (date_logged, invoice_no, party_name, gauge_size, weight_deducted_kg, timestamp) 
-                                VALUES (?, ?, ?, ?, ?, ?)
-                            """, (current_date_stamp, str(select_modify_bill), m_party.strip(), mod_target_gauge, float(m_weight), current_time_stamp))
-                        else:
-                            cursor.execute("DELETE FROM wire_sales_logs WHERE invoice_no = ?", (str(select_modify_bill),))
-                            
+                        cursor.execute("UPDATE sales_new SET party_name=?, bill_amount=?, total_weight_sold_kg=? WHERE invoice_no=?", (m_party.strip(), m_amt, m_weight, str(select_modify_bill)))
                         conn.commit()
-                        st.success("✔️ Successfully updated invoice parameters and wire stock balances!")
-                        st.rerun()
-                        
-                    if delete_invoice:
-                        cursor = conn.cursor()
-                        for roll_type, old_qty in purane_sold_items.items():
-                            cursor.execute("UPDATE roll_types SET current_stock_rolls = current_stock_rolls + ? WHERE roll_name = ?", (int(old_qty), roll_type))
-                        
-                        # 🔥 FULL ROLLBACK WIRE RESTORATION ON PERMANENT DELETE
-                        if float(weight_curr) > 0.0:
-                            cursor.execute("UPDATE raw_material SET current_stock_kg = current_stock_kg + ? WHERE gauge_name = ?", (float(weight_curr), mod_target_gauge))
-                        
-                        cursor.execute("DELETE FROM sales_items WHERE invoice_no=?", (str(select_modify_bill),))
-                        cursor.execute("DELETE FROM sales_new WHERE invoice_no=?", (str(select_modify_bill),))
-                        cursor.execute("DELETE FROM wire_sales_logs WHERE invoice_no = ?", (str(select_modify_bill),))
-                        
-                        conn.commit()
-                        st.warning("❌ Invoice Deleted permanently! Raw wire weight credited back.")
+                        st.success("✔️ Updated!")
                         st.rerun()
         conn.close()
-# ==========================================
-# [PART_4_B1_END]
-# ==========================================
+
 # ======================================================================
-# [PART_4_B2_START] - Dashboard & Professional Outstanding English WhatsApp Alert Engine
-# ==========================================
+# [PART_11_END]
+# ======================================================================
+# ======================================================================
+# [PART_12_START] - Dashboard Pending Payment Overdue Alerts & End System
+# ======================================================================
+
 elif menu == "🚨 Dashboard & Payment Alerts":
-    st.subheader("🚨 Live Payment Outstanding Overdue Alerts")
+    st.subheader("🚨 Live Payment Outstanding Alerts")
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT invoice_no, party_name, bill_date, bill_amount, allowed_days, party_phone FROM sales_new WHERE payment_status = 'Pending'")
-    pending_bills = cursor.fetchall()
-    conn_close_fixed = conn.close()
+    pending_bills = conn.execute("SELECT invoice_no, party_name, bill_date, bill_amount, allowed_days, party_phone FROM sales_new WHERE payment_status = 'Pending'").fetchall()
+    conn.close()
     
     current_date = datetime.now().date()
-    alert_count = 0
     if pending_bills:
         for bill in pending_bills:
             inv, party, b_date_str, amount, allowed_days, phone = bill
-            bill_date = datetime.strptime(b_date_str, "%Y-%m-%d").date()
-            days_passed = (current_date - bill_date).days
-            if days_passed > allowed_days:
-                alert_count += 1
-                overdue_days = days_passed - allowed_days
-                
-                # 🔥 UPGRADED FORMAL ENGLISH WHATSAPP TEMPLATE ENGINE (COMPACT WRAPPED)
-                raw_msg = (
-                    f"Dear {party},\n\n"
-                    f"This is a formal reminder regarding your outstanding "
-                    f"Invoice No: {inv}. An amount of Rs. {amount:,.2f} "
-                    f"is currently overdue by {overdue_days} day(s).\n\n"
-                    f"We kindly request you to clear the outstanding dues "
-                    f"at your earliest convenience. If the payment has already "
-                    f"been processed, please ignore this message.\n\n"
-                    f"Regards,\n"
-                    f"Mannat Wealth / Factory ERP"
-                )
-                
-                # Safe operational string string replacements to handle spaces cleanly
-                encoded_msg = raw_msg.replace("\n", "%0A").replace(" ", "%20")
-                
-                clean_phone = str(phone).strip()
-                if clean_phone and not clean_phone.startswith("91") and len(clean_phone) == 10:
-                    clean_phone = "91" + clean_phone
-                
-                whatsapp_desktop_url = f"whatsapp://send?phone={clean_phone}&text={encoded_msg}"
-                
-                st.error(f"🔴 **ALERT:** Party Name: **{party}** (Bill: {inv}) | Overdue by **{overdue_days} day(s)** | Amount: **₹{amount:,}**")
-                if phone:
-                    st.markdown(f"👉 [💬 Open in WhatsApp Desktop App for {party}]({whatsapp_desktop_url})")
-                else:
-                    st.caption(f"⚠️ Note: {party} ka phone number billing section me chada nahi mila, kripya edit tab me phone jodein.")
-                    
-        if alert_count == 0: st.success("👍 Sabhi pending bills credit limit ke andar hain!")
-    else: st.info("Khaate me koi pending bill nahi hai.")
+            days = (current_date - datetime.strptime(b_date_str, "%Y-%m-%d").date()).days
+            if days > allowed_days:
+                st.error(f"🔴 Overdue Bill: {inv} | Party: {party} | Dues: ₹{amount}")
+                raw_msg = f"Dear {party}, Bill No {inv} is overdue. Please clear dues."
+                st.markdown(f"👉 [💬 Send WhatsApp](whatsapp://send?phone=91{phone}&text={raw_msg.replace(' ', '%20')})")
+    else: 
+        st.info("Sab Safe Hai! No Pending Overdues found.")
+
 # ======================================================================
-# [PART_4_B2_END]
+# [PART_12_END]
 # ======================================================================
+# ======================================================================
+# [PART_13_START] - Live Cloud Database Sync & Offline Export Hook
+# ======================================================================
+
+# साइडबार में नीचे की तरफ एक सेपरेटर लाइन और बैकअप डाउनलोड का सेक्शन
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📥 Backup & Sync Area")
+
+# डेटाबेस फाइल को रीड करने का सेफ फंक्शन
+def read_db_binary():
+    if os.path.exists(DB_FILE_PATH):
+        with open(DB_FILE_PATH, "rb") as f:
+            return f.read()
+    return None
+
+db_data = read_db_binary()
+
+if db_data is not None:
+    # स्ट्रीमलिट का इन-बिल्ट डाउनलोड बटन जो फाइल को बाइनरी फॉर्मेट में निकालता है
+    st.sidebar.download_button(
+        label="📥 Download Live DB File",
+        data=db_data,
+        file_name="factory_management.db",
+        mime="application/octet-stream",
+        use_container_width=True,
+        help="Click here to download the latest database file to sync with your offline laptop setup."
+    )
+    st.sidebar.caption("💡 इस फाइल को डाउनलोड करके अपने लैपटॉप के सॉफ्टवेयर फोल्डर में पेस्ट कर दें।")
+else:
+    st.sidebar.error("⚠️ Database file not found to export!")
+
+# ======================================================================
+# [PART_13_END]
+# ======================================================================
+
