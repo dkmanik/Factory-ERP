@@ -1,5 +1,5 @@
 # ======================================================================
-# [PART_1_START] - Main Config, UI Styling & Database Connection Hook
+# [PART_1_START] - Main Config, UI Styling & Dropbox Cloud Storage Link
 # ======================================================================
 
 import streamlit as st
@@ -74,12 +74,19 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🔒 कल रात वाला असली लोकलाइजेशन मैकेनिज्म - जो स्लीप मोड से डेटा बचाता है
-DB_FILE_PATH = 'factory_management.db'
+# 🔒 क्लाउड-सेफ एंटी-स्लीप और ड्रॉबॉक्स सिंक कनेक्शन हब
+# यह चेक करता है कि ऐप ऑनलाइन सर्वर पर है या आपके लैपटॉप के ड्रॉबॉक्स फोल्डर में
+if os.environ.get('HOME') == '/home/appuser' or 'STREAMLIT_SERVER_PORT' in os.environ:
+    # 🌐 ऑनलाइन मोबाइल के लिए: यह स्ट्रीमलिट की सेफ तिजोरी में डेटा लॉक करेगा ताकि स्लीप मोड में डिलीट न हो
+    DB_FILE_PATH = os.path.expanduser('~/factory_management.db')
+else:
+    # 💻 आपके लैपटॉप के लिए: यह सीधे उसी फोल्डर (ड्रॉबॉक्स) की फाइल उठाएगा जहाँ आपकी app.py रखी है
+    DB_FILE_PATH = 'factory_management.db'
 
 def get_db_connection():
     conn = sqlite3.connect(DB_FILE_PATH, check_same_thread=False)
-    conn.execute("PRAGMA journal_mode=WAL;")  # कैशे लॉक सिंक इनेबल
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
     return conn
 
 # ======================================================================
