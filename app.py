@@ -431,33 +431,50 @@ elif menu == "📊 Production Reports (Analytics)":
     if df_p.empty:
         st.info("Abhi tak koi production entry nahi ki gayi hai.")
     else:
+        # तारीखों को सही फॉर्मेट में बदलें
+        df_p['Date'] = pd.to_datetime(df_p['Date']).dt.date
         df_p['Month'] = pd.to_datetime(df_p['Date']).dt.strftime('%Y-%m')
         
         st.markdown("### 🔍 Search & Filter Control Panel")
-        col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+        
+        # 🗓️ डेट रेंज फ़िल्टर (शुरुआती और आखरी तारीख एक साथ चुनें)
+        min_date = df_p['Date'].min()
+        max_date = df_p['Date'].max()
+        
+        selected_date_range = st.date_input(
+            "📅 Date Range Filter (शुरुआती और आखरी तारीख चुनें)",
+            value=(min_date, max_date),
+            min_value=min_date,
+            max_value=max_date,
+            key="analytics_date_range_picker"
+        )
+        
+        # बाकी के 3 फ़िल्टर्स ड्रॉपडाउन की लाइन
+        col_f1, col_f2, col_f3 = st.columns(3)
         
         with col_f1:
             unique_months = ["All Months"] + sorted(df_p['Month'].unique().tolist(), reverse=True)
-            filter_month = st.selectbox("📅 Month Chunein (e.g., 2026-06)", unique_months)
+            filter_month = st.selectbox("📅 Month Chunein (e.g., 2026-07)", unique_months)
             
         with col_f2:
-            unique_dates = ["All Dates"] + sorted(df_p['Date'].unique().tolist(), reverse=True)
-            filter_date = st.selectbox("📆 Date Chunein", unique_dates)
-            
-        with col_f3:
             unique_emps = ["All Employees"] + sorted(df_p['Employee'].unique().tolist())
             filter_emp = st.selectbox("👤 Employee Chunein", unique_emps)
             
-        with col_f4:
+        with col_f3:
             unique_rolls = ["All Rolls"] + sorted(df_p['Roll Type'].unique().tolist())
             filter_roll = st.selectbox("🛞 Roll Category Chunein", unique_rolls)
             
+        # --- FILTERING LOGIC ---
         df_filtered = df_p.copy()
         
+        # तारीख रेंज फ़िल्टर लागू करें
+        if isinstance(selected_date_range, tuple) and len(selected_date_range) == 2:
+            start_date, end_date = selected_date_range
+            df_filtered = df_filtered[(df_filtered['Date'] >= start_date) & (df_filtered['Date'] <= end_date)]
+        
+        # बाकी बचे फ़िल्टर्स लागू करें
         if filter_month != "All Months": 
             df_filtered = df_filtered[df_filtered['Month'] == filter_month]
-        if filter_date != "All Dates": 
-            df_filtered = df_filtered[df_filtered['Date'] == filter_date]
         if filter_emp != "All Employees": 
             df_filtered = df_filtered[df_filtered['Employee'] == filter_emp]
         if filter_roll != "All Rolls": 
@@ -477,19 +494,19 @@ elif menu == "📊 Production Reports (Analytics)":
         with t1:
             if not df_filtered.empty:
                 df_date_wise = df_filtered.groupby('Date')[['Rolls Built', 'Labor Wages (₹)']].sum().reset_index()
-                st.dataframe(df_date_wise, use_container_width=True)
+                st.dataframe(df_date_wise, use_container_width=True, hide_index=True)
             else: 
                 st.write("No data available.")
                 
         with t2:
             if not df_filtered.empty:
                 df_emp_wise = df_filtered.groupby(['Employee', 'Roll Type'])[['Rolls Built', 'Labor Wages (₹)']].sum().reset_index()
-                st.dataframe(df_emp_wise, use_container_width=True)
+                st.dataframe(df_emp_wise, use_container_width=True, hide_index=True)
             else: 
                 st.write("No data available.")
                 
         with t3:
-            st.dataframe(df_filtered.drop(columns=['ID', 'Month']), use_container_width=True)
+            st.dataframe(df_filtered.drop(columns=['ID', 'Month']), use_container_width=True, hide_index=True)
 
 # ======================================================================
 # [PART_6_END]
