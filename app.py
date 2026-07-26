@@ -89,9 +89,11 @@ def get_db_connection():
     return conn
 
 # 📊 पहली बार पुराना डेटा लाइव तिजोरी में भेजने का इंटरफेस (सिर्फ ऑनलाइन दिखेगा)
-if IS_ONLINE and (not os.path.exists(DB_FILE_PATH) or os.path.getsize(DB_FILE_PATH) < 1000):
+# 📊 पहली बार पुराना डेटा लाइव तिजोरी में भेजने का इंटरफेस (सिर्फ ऑनलाइन दिखेगा)
+# FORCE PATCH: अगर फाइल 50 KB से छोटी है (यानी खाली है), तो यह अपलोड बॉक्स दिखाएगा
+if IS_ONLINE and (not os.path.exists(DB_FILE_PATH) or os.path.getsize(DB_FILE_PATH) < 50000):
     st.warning("🏭 MANNAT ERP: ऑनलाइन सेफ तिजोरी अभी खाली है! अपना पुराना रिकॉर्ड यहाँ लोड करें।")
-    uploaded_db = st.file_uploader("📂 अपने लैपटॉप की 'factory_management.db' फाइल यहाँ अपलोड करें", type=["db"])
+    uploaded_db = st.file_uploader("📂 अपने लैपटॉप की 'factory_management.db' फाइल यहाँ अपलोड करें", type=["db", "file"])
     
     if uploaded_db is not None:
         with open(DB_FILE_PATH, "wb") as f:
