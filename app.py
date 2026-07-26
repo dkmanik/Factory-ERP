@@ -1,5 +1,5 @@
 # ======================================================================
-# [PART_1_START] - Main Config, UI Styling & Dropbox Cloud Storage Link
+# [PART_1_START] - Main Config, UI Styling & Final Cloud Sync Link
 # ======================================================================
 
 import streamlit as st
@@ -74,13 +74,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🔒 क्लाउड-सेफ एंटी-स्लीप और ड्रॉबॉक्स सिंक कनेक्शन हब
-# यह चेक करता है कि ऐप ऑनलाइन सर्वर पर है या आपके लैपटॉप के ड्रॉबॉक्स फोल्डर में
-if os.environ.get('HOME') == '/home/appuser' or 'STREAMLIT_SERVER_PORT' in os.environ:
-    # 🌐 ऑनलाइन मोबाइल के लिए: यह स्ट्रीमलिट की सेफ तिजोरी में डेटा लॉक करेगा ताकि स्लीप मोड में डिलीट न हो
+# 🔒 क्लाउड-सेफ एंटी-स्लीप और मैन्युअल डेटाबेस माइग्रेशन हुक
+IS_ONLINE = os.environ.get('HOME') == '/home/appuser' or 'STREAMLIT_SERVER_PORT' in os.environ
+
+if IS_ONLINE:
     DB_FILE_PATH = os.path.expanduser('~/factory_management.db')
 else:
-    # 💻 आपके लैपटॉप के लिए: यह सीधे उसी फोल्डर (ड्रॉबॉक्स) की फाइल उठाएगा जहाँ आपकी app.py रखी है
     DB_FILE_PATH = 'factory_management.db'
 
 def get_db_connection():
@@ -88,6 +87,18 @@ def get_db_connection():
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA synchronous=NORMAL;")
     return conn
+
+# 📊 पहली बार पुराना डेटा लाइव तिजोरी में भेजने का इंटरफेस (सिर्फ ऑनलाइन दिखेगा)
+if IS_ONLINE and (not os.path.exists(DB_FILE_PATH) or os.path.getsize(DB_FILE_PATH) < 1000):
+    st.warning("🏭 MANNAT ERP: ऑनलाइन सेफ तिजोरी अभी खाली है! अपना पुराना रिकॉर्ड यहाँ लोड करें।")
+    uploaded_db = st.file_uploader("📂 अपने लैपटॉप की 'factory_management.db' फाइल यहाँ अपलोड करें", type=["db"])
+    
+    if uploaded_db is not None:
+        with open(DB_FILE_PATH, "wb") as f:
+            f.write(uploaded_db.getbuffer())
+        st.success("🎉 पुराना डेटा सफलतापूर्वक लाइव तिजोरी में सुरक्षित हो गया है! ऐप लोड हो रहा है...")
+        st.rerun()
+    st.stop()
 
 # ======================================================================
 # [PART_1_END]
