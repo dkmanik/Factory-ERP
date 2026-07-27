@@ -1,5 +1,5 @@
 # ======================================================================
-# [PART_1_START] - Main Config, UI Styling & Dropbox Cloud Storage Link
+# [PART_1_START] - Main Config, UI Styling & Final Cloud Sync Link
 # ======================================================================
 
 import streamlit as st
@@ -74,13 +74,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🔒 क्लाउड-सेफ एंटी-स्लीप और ड्रॉबॉक्स सिंक कनेक्शन हब
-# यह चेक करता है कि ऐप ऑनलाइन सर्वर पर है या आपके लैपटॉप के ड्रॉबॉक्स फोल्डर में
-if os.environ.get('HOME') == '/home/appuser' or 'STREAMLIT_SERVER_PORT' in os.environ:
-    # 🌐 ऑनलाइन मोबाइल के लिए: यह स्ट्रीमलिट की सेफ तिजोरी में डेटा लॉक करेगा ताकि स्लीप मोड में डिलीट न हो
+# 🔒 क्लाउड-सेफ एंटी-स्लीप और मैन्युअल डेटाबेस माइग्रेशन हुक
+IS_ONLINE = os.environ.get('HOME') == '/home/appuser' or 'STREAMLIT_SERVER_PORT' in os.environ
+
+if IS_ONLINE:
     DB_FILE_PATH = os.path.expanduser('~/factory_management.db')
 else:
-    # 💻 आपके लैपटॉप के लिए: यह सीधे उसी फोल्डर (ड्रॉबॉक्स) की फाइल उठाएगा जहाँ आपकी app.py रखी है
     DB_FILE_PATH = 'factory_management.db'
 
 def get_db_connection():
@@ -93,9 +92,10 @@ def get_db_connection():
 # [PART_1_END]
 # ======================================================================
 # ======================================================================
-# [PART_2_START] - Automated Schema Generation, Core Hard-Patches & Login Panel
+# [PART_2_START] - Database Auto-Patch, Session Security & Navigation Menu
 # ======================================================================
 
+# 🔥 AUTOMATIC DATABASE INITIALIZATION GENERATOR WITH HARD-PATCH COLUMNS
 def ensure_payments_table_exists():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -108,26 +108,17 @@ def ensure_payments_table_exists():
             emp_name TEXT,
             amount_paid REAL DEFAULT 0.0,
             payment_mode TEXT,
-            remarks TEXT,
-            given_by_supervisor INTEGER DEFAULT 0
+            remarks TEXT
         )
     """)
-    cursor.execute("CREATE TABLE IF NOT EXISTS employees (emp_id INTEGER PRIMARY KEY AUTOINCREMENT, emp_name TEXT UNIQUE)")
-    cursor.execute("CREATE TABLE IF NOT EXISTS roll_types (roll_id INTEGER PRIMARY KEY AUTOINCREMENT, roll_name TEXT UNIQUE, labor_rate_per_roll REAL DEFAULT 0.0, approx_weight_kg REAL DEFAULT 0.0, current_stock_rolls REAL DEFAULT 0.0)")
-    cursor.execute("CREATE TABLE IF NOT EXISTS production_new (p_id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, emp_name TEXT, roll_name TEXT, quantity_produced INTEGER, labor_earned REAL, total_weight_kg REAL)")
-    cursor.execute("CREATE TABLE IF NOT EXISTS sales_new (invoice_no TEXT PRIMARY KEY, party_name TEXT, party_phone TEXT, bill_date TEXT, bill_amount REAL, allowed_days INTEGER, total_weight_sold_kg REAL DEFAULT 0.0, payment_status TEXT DEFAULT 'Pending')")
-    cursor.execute("CREATE TABLE IF NOT EXISTS sales_items (id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_no TEXT, roll_name TEXT, quantity_sold INTEGER)")
-    cursor.execute("CREATE TABLE IF NOT EXISTS raw_material (gauge_id INTEGER PRIMARY KEY AUTOINCREMENT, gauge_name TEXT UNIQUE, current_stock_kg REAL DEFAULT 0.0)")
-    cursor.execute("CREATE TABLE IF NOT EXISTS wire_inward_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, date_logged TEXT, gauge_size TEXT, weight_added_kg REAL, timestamp TEXT)")
-    cursor.execute("CREATE TABLE IF NOT EXISTS wire_sales_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, date_logged TEXT, invoice_no TEXT, party_name TEXT, gauge_size TEXT, weight_deducted_kg REAL, timestamp TEXT)")
     conn.commit()
     
-    # 2. 🔥 HARD PATCH: Old files migration logic fallback injector
+    # 2. 🔥 HARD PATCH: Puraani file me agar column miss ho gaya hai toh explicitly inject karega
     try:
         cursor.execute("ALTER TABLE employee_payments ADD COLUMN given_by_supervisor INTEGER DEFAULT 0")
         conn.commit()
     except sqlite3.OperationalError:
-        pass # Already existing columns gracefully bypassed
+        pass # Column pehle se hi hai toh safe skip karega
         
     conn.close()
 
@@ -138,9 +129,11 @@ if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 if not st.session_state['logged_in']:
+    # Secure Login Screen Standard Pure Grid Display
     st.markdown('<div style="text-align: center; margin-top: 30px;"><h1 style="color: #1e3a8a; font-weight:900; letter-spacing:1px; margin-bottom:5px;">🏭 MANNAT WIRE NETTING INDUSTRIES</h1><p style="color: #4b5563; font-weight:600;">Enterprise Resource Planning System Secure Gateway</p></div>', unsafe_allow_html=True)
     st.markdown("---")
     
+    # Grid layout positioning alignment
     left_space, login_card, right_space = st.columns([1, 1.2, 1])
     
     with login_card:
@@ -166,10 +159,13 @@ if not st.session_state['logged_in']:
                 
     st.stop()
 
-# --- 🔓 CORE DASHBOARD DISPLAY LAYOUT ---
+# --- 🔓 CORE DASHBOARD LOAD (EXECUTES ONLY AFTER SUCCESSFUL LOGIN) ---
+
+# Grand Brand Header Display
 st.markdown('<div class="company-header">🏭 MANNAT WIRE NETTING INDUSTRIES</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">Advanced Factory Core Management System</div>', unsafe_allow_html=True)
 
+# Sidebar Header Branding & Logout System
 st.sidebar.markdown("""
     <div class="sidebar-brand-box">
         <div class="sidebar-brand-title">⚙️ ENTERPRISE ERP</div>
@@ -177,12 +173,14 @@ st.sidebar.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
+# Session Logout Button
 if st.sidebar.button("🚪 Secure Logout", use_container_width=True):
     st.session_state['logged_in'] = False
     st.rerun()
 
 st.sidebar.markdown("---")
 
+# Navigation System Menu WITH NEW MASTER SYNC OPTION AT THE BOTTOM
 menu = st.sidebar.radio(
     "Navigation Menu", 
     [
@@ -193,7 +191,8 @@ menu = st.sidebar.radio(
         "🧾 Sales & Weight Deduction",
         "👥 Workers Hisab-Kitab Ledger",
         "👑 Supervisor (Pappu Nishad)",
-        "🛠️ Master Setup (Emp & Rates)"
+        "🛠️ Master Setup (Emp & Rates)",
+        "🔄 Master Sync & Upload"  # <-- नया परमानेंट अपलोडर विकल्प यहाँ जुड़ गया है
     ],
     label_visibility="collapsed"
 )
@@ -1105,22 +1104,60 @@ elif menu == "🧾 Sales & Weight Deduction":
 # ======================================================================
 
 elif menu == "🚨 Dashboard & Payment Alerts":
-    st.subheader("🚨 Live Payment Outstanding Alerts")
+    st.subheader("🚨 Live Payment Outstanding Overdue Alerts")
     conn = get_db_connection()
-    pending_bills = conn.execute("SELECT invoice_no, party_name, bill_date, bill_amount, allowed_days, party_phone FROM sales_new WHERE payment_status = 'Pending'").fetchall()
+    cursor = conn.cursor()
+    cursor.execute("SELECT invoice_no, party_name, bill_date, bill_amount, allowed_days, party_phone FROM sales_new WHERE payment_status = 'Pending'")
+    pending_bills = cursor.fetchall()
     conn.close()
     
     current_date = datetime.now().date()
+    alert_count = 0
+    
     if pending_bills:
         for bill in pending_bills:
             inv, party, b_date_str, amount, allowed_days, phone = bill
-            days = (current_date - datetime.strptime(b_date_str, "%Y-%m-%d").date()).days
-            if days > allowed_days:
-                st.error(f"🔴 Overdue Bill: {inv} | Party: {party} | Dues: ₹{amount}")
-                raw_msg = f"Dear {party}, Bill No {inv} is overdue. Please clear dues."
-                st.markdown(f"👉 [💬 Send WhatsApp](whatsapp://send?phone=91{phone}&text={raw_msg.replace(' ', '%20')})")
+            bill_date = datetime.strptime(b_date_str, "%Y-%m-%d").date()
+            days_passed = (current_date - bill_date).days
+            
+            # अगर बिल अलाउड डेज (क्रेडिट लिमिट) से ऊपर चला गया है
+            if days_passed > allowed_days:
+                alert_count += 1
+                overdue_days = days_passed - allowed_days
+                
+                # 🔥 PROFESSIONAL ENGLISH WHATSAPP TEMPLATE ENGINE
+                raw_msg = (
+                    f"Dear {party},\n\n"
+                    f"This is a formal reminder regarding your outstanding "
+                    f"Invoice No: {inv}. An amount of Rs. {amount:,.2f} "
+                    f"is currently overdue by {overdue_days} day(s).\n\n"
+                    f"We kindly request you to clear the outstanding dues "
+                    f"at your earliest convenience. If the payment has already "
+                    f"been processed, please ignore this message.\n\n"
+                    f"Regards,\n"
+                    f"Mannat Wire Netting Industries / Factory ERP"
+                )
+                
+                # सुरक्षित यूआरएल एन्कोडिंग (Spaces और Lines के लिए)
+                encoded_msg = raw_msg.replace("\n", "%0A").replace(" ", "%20")
+                
+                clean_phone = str(phone).strip()
+                if clean_phone and not clean_phone.startswith("91") and len(clean_phone) == 10:
+                    clean_phone = "91" + clean_phone
+                
+                whatsapp_desktop_url = f"whatsapp://send?phone={clean_phone}&text={encoded_msg}"
+                
+                st.error(f"🔴 **ALERT:** Party Name: **{party}** (Bill: {inv}) | Overdue by **{overdue_days} day(s)** | Amount: **₹{amount:,}**")
+                if phone:
+                    st.markdown(f"👉 [💬 Open in WhatsApp Desktop App for {party}]({whatsapp_desktop_url})")
+                else:
+                    st.caption(f"⚠️ Note: {party} ka phone number billing section me chada nahi mila, kripya edit tab me phone jodein.")
+                    
+        # 👍 अगर कोई भी बिल ओवरड्यू नहीं है, तो ये मैसेज दिखेगा
+        if alert_count == 0: 
+            st.success("👍 Sabhi pending bills credit limit ke andar hain!")
     else: 
-        st.info("Sab Safe Hai! No Pending Overdues found.")
+        st.info("Khaate me koi pending bill nahi hai. Sab Safe Hai!")
 
 # ======================================================================
 # [PART_12_END]
@@ -1159,4 +1196,25 @@ else:
 # ======================================================================
 # [PART_13_END]
 # ======================================================================
+# ======================================================================
+# [PART_14_START] - Master Database Override & Direct Upload Gateway
+# ======================================================================
+if menu == "🔄 Master Sync & Upload":
+    st.subheader("🔄 Laptop Master Database Integration Hub")
+    st.info("जब भी आप लैपटॉप पर मास्टर्स या कोई डेटा बदलें, उस फाइल को यहाँ डायरेक्ट अपलोड करके ऑनलाइन सिंक कर सकते हैं।")
+    
+    if IS_ONLINE:
+        uploaded_master_db = st.file_uploader("📂 अपने लैपटॉप की 'factory_management.db' फाइल यहाँ ड्रॉप करें", type=["db", "file"], key="master_manual_upload_gate")
+        if uploaded_master_db is not None:
+            with open(DB_FILE_PATH, "wb") as f:
+                f.write(uploaded_master_db.getbuffer())
+            st.success("🎉 बधाई हो भाई! लैपटॉप का पूरा नया डेटाबेस लाइव तिजोरी में ओवरराइड (सिंक) हो गया है!")
+            st.balloons()
+            st.rerun()
+    else:
+        st.warning("💻 आप अभी अपने लैपटॉप के ऑफलाइन मोड पर हैं। यह विकल्प केवल ऑनलाइन मोबाइल साइट पर काम करेगा।")
+# ======================================================================
+# [PART_14_END]
+# ======================================================================
+
 
