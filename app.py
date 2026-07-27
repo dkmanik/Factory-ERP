@@ -1,5 +1,5 @@
 # ======================================================================
-# [PART_1_START] - Main Config, UI Styling & Final Cloud Sync Link
+# [PART_1_START] - Main Config, UI Styling & Dropbox Cloud Storage Link
 # ======================================================================
 
 import streamlit as st
@@ -74,12 +74,13 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🔒 क्लाउड-सेफ एंटी-स्लीप और मैन्युअल डेटाबेस माइग्रेशन हुक
-IS_ONLINE = os.environ.get('HOME') == '/home/appuser' or 'STREAMLIT_SERVER_PORT' in os.environ
-
-if IS_ONLINE:
+# 🔒 क्लाउड-सेफ एंटी-स्लीप और ड्रॉबॉक्स सिंक कनेक्शन हब
+# यह चेक करता है कि ऐप ऑनलाइन सर्वर पर है या आपके लैपटॉप के ड्रॉबॉक्स फोल्डर में
+if os.environ.get('HOME') == '/home/appuser' or 'STREAMLIT_SERVER_PORT' in os.environ:
+    # 🌐 ऑनलाइन मोबाइल के लिए: यह स्ट्रीमलिट की सेफ तिजोरी में डेटा लॉक करेगा ताकि स्लीप मोड में डिलीट न हो
     DB_FILE_PATH = os.path.expanduser('~/factory_management.db')
 else:
+    # 💻 आपके लैपटॉप के लिए: यह सीधे उसी फोल्डर (ड्रॉबॉक्स) की फाइल उठाएगा जहाँ आपकी app.py रखी है
     DB_FILE_PATH = 'factory_management.db'
 
 def get_db_connection():
@@ -87,20 +88,6 @@ def get_db_connection():
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA synchronous=NORMAL;")
     return conn
-
-# 📊 पहली बार पुराना डेटा लाइव तिजोरी में भेजने का इंटरफेस (सिर्फ ऑनलाइन दिखेगा)
-# 📊 पहली बार पुराना डेटा लाइव तिजोरी में भेजने का इंटरफेस (सिर्फ ऑनलाइन दिखेगा)
-# FORCE PATCH: अगर फाइल 50 KB से छोटी है (यानी खाली है), तो यह अपलोड बॉक्स दिखाएगा
-if IS_ONLINE and (not os.path.exists(DB_FILE_PATH) or os.path.getsize(DB_FILE_PATH) < 50000):
-    st.warning("🏭 MANNAT ERP: ऑनलाइन सेफ तिजोरी अभी खाली है! अपना पुराना रिकॉर्ड यहाँ लोड करें।")
-    uploaded_db = st.file_uploader("📂 अपने लैपटॉप की 'factory_management.db' फाइल यहाँ अपलोड करें", type=["db", "file"])
-    
-    if uploaded_db is not None:
-        with open(DB_FILE_PATH, "wb") as f:
-            f.write(uploaded_db.getbuffer())
-        st.success("🎉 पुराना डेटा सफलतापूर्वक लाइव तिजोरी में सुरक्षित हो गया है! ऐप लोड हो रहा है...")
-        st.rerun()
-    st.stop()
 
 # ======================================================================
 # [PART_1_END]
@@ -1000,7 +987,7 @@ elif menu == "🧾 Sales & Weight Deduction":
 # [PART_10_END]
 # ======================================================================
 # ======================================================================
-# [PART_11_START] - Invoice Modifications Management Desk (Stock Reversals)
+# [PART_11_START] - Bill Modification Engine With Dynamic Raw Stock Reversal & Log Mapping
 # ======================================================================
 
     with tab3:
@@ -1010,19 +997,103 @@ elif menu == "🧾 Sales & Weight Deduction":
         if not all_bills: 
             st.info("No saved invoices found.")
         else:
-            select_modify_bill = st.selectbox("Kaun Sa Bill Edit Karni Hai?", [str(b) for b in all_bills])
+            clean_bill_options = [str(b) for b in all_bills]
+            select_modify_bill = st.selectbox("Kaun Sa Bill Edit / Modify Karna Hai?", clean_bill_options)
+            
             bill_meta = conn.execute("SELECT party_name, bill_date, bill_amount, allowed_days, total_weight_sold_kg, payment_status, party_phone FROM sales_new WHERE invoice_no=?", (str(select_modify_bill),)).fetchone()
+            
+            purane_sold_items = {r[0]: r[1] for r in conn.execute("SELECT roll_name, quantity_sold FROM sales_items WHERE invoice_no=?", (str(select_modify_bill),)).fetchall()}
+            available_master_rolls = [r[0] for r in conn.execute("SELECT roll_name FROM roll_types").fetchall()]
+            
+            cursor_g = conn.cursor()
+            cursor_g.execute("SELECT DISTINCT gauge_name FROM raw_material")
+            active_gauge_options_list = [r[0] for r in cursor_g.fetchall() if r and r[0]]
+            if not active_gauge_options_list:
+                active_gauge_options_list = ["24 Gauge", "25 Gauge", "26 Gauge", "27 Gauge"]
+                
             if bill_meta:
+                p_name_curr, b_date_curr, amt_curr, allow_curr, weight_curr, status_curr, phone_curr = bill_meta
+                b_date_parsed = datetime.strptime(b_date_curr, "%Y-%m-%d").date() if b_date_curr else datetime.now().date()
+                
+                row_log_meta = conn.execute("SELECT gauge_size FROM wire_sales_logs WHERE invoice_no = ?", (str(select_modify_bill),)).fetchone()
+                default_gauge_idx = 0
+                if row_log_meta and str(row_log_meta[0]) in active_gauge_options_list:
+                    default_gauge_idx = active_gauge_options_list.index(str(row_log_meta[0]))
+                
                 with st.form("modify_form_gate_with_rolls"):
-                    m_party = st.text_input("Party Name", value=bill_meta[0])
-                    m_amt = st.number_input("Bill Amount (₹)", value=float(bill_meta[3]))
-                    m_weight = st.number_input("Total Weight (KG)", value=float(bill_meta[4]))
+                    col_m1, col_m2 = st.columns(2)
+                    with col_m1:
+                        m_party = st.text_input("Party Name", value=p_name_curr)
+                        m_phone = st.text_input("Party Phone", value=phone_curr if phone_curr else "")
+                        m_date = st.date_input("Bill Date", value=b_date_parsed)
+                        m_status = st.selectbox("Payment Status", ["Pending", "Paid"], index=0 if status_curr == "Pending" else 1)
+                    with col_m2:
+                        m_amt = st.number_input("Bill Amount (₹)", min_value=0.0, value=float(amt_curr))
+                        m_allow = st.number_input("Allowed Days", min_value=0, value=int(allow_curr))
+                        m_weight = m_weight = st.number_input("Total Weight (KG)", min_value=0.0, value=float(weight_curr))
+                        mod_target_gauge = st.selectbox("🎯 Target Gauge for Stock Reversal / Update", options=active_gauge_options_list, index=default_gauge_idx)
                     
-                    if st.form_submit_button("💾 Save Updated Changes"):
+                    st.markdown("#### 📦 Invoice Items Breakdown (Rolls)")
+                    modify_quantities = {}
+                    col_mod_items = st.columns(len(available_master_rolls) if len(available_master_rolls) > 0 else 1)
+                    for idx, r_name in enumerate(available_master_rolls):
+                        default_qty = int(purane_sold_items.get(r_name, 0))
+                        with col_mod_items[idx % len(col_mod_items)]:
+                            modify_quantities[r_name] = st.number_input(f"🛞 {r_name} Qty", min_value=0, value=default_qty, step=1, key=f"edit_qty_{str(select_modify_bill)}_{r_name}")
+                    
+                    st.markdown("---")
+                    col_p_btn1, col_p_btn2 = st.columns(2)
+                    with col_p_btn1:
+                        save_changes = st.form_submit_button("💾 Save Updated Changes")
+                    with col_p_btn2:
+                        delete_invoice = st.form_submit_button("🗑️ DELETE THIS INVOICE PERMANENTLY")
+                    
+                    if save_changes:
                         cursor = conn.cursor()
-                        cursor.execute("UPDATE sales_new SET party_name=?, bill_amount=?, total_weight_sold_kg=? WHERE invoice_no=?", (m_party.strip(), m_amt, m_weight, str(select_modify_bill)))
+                        for roll_type, old_qty in purane_sold_items.items():
+                            cursor.execute("UPDATE roll_types SET current_stock_rolls = current_stock_rolls + ? WHERE roll_name = ?", (int(old_qty), roll_type))
+                        
+                        if float(weight_curr) > 0.0:
+                            cursor.execute("UPDATE raw_material SET current_stock_kg = current_stock_kg + ? WHERE gauge_name = ?", (float(weight_curr), mod_target_gauge))
+                        
+                        cursor.execute("UPDATE sales_new SET party_name=?, bill_date=?, bill_amount=?, allowed_days=?, total_weight_sold_kg=?, payment_status=?, party_phone=? WHERE invoice_no=?", (m_party.strip(), str(m_date), m_amt, m_allow, m_weight, m_status, m_phone.strip(), str(select_modify_bill)))
+                        cursor.execute("DELETE FROM sales_items WHERE invoice_no=?", (str(select_modify_bill),))
+                        
+                        for roll_type, new_qty in modify_quantities.items():
+                            if new_qty > 0:
+                                cursor.execute("INSERT INTO sales_items (invoice_no, roll_name, quantity_sold) VALUES (?, ?, ?)", (str(select_modify_bill), roll_type, int(new_qty)))
+                                cursor.execute("UPDATE roll_types SET current_stock_rolls = current_stock_rolls - ? WHERE roll_name = ?", (int(new_qty), roll_type))
+
+                        if float(m_weight) > 0.0:
+                            current_time_stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            current_date_stamp = datetime.now().strftime("%Y-%m-%d")
+                            cursor.execute("UPDATE raw_material SET current_stock_kg = current_stock_kg - ? WHERE gauge_name = ?", (float(m_weight), mod_target_gauge))
+                            cursor.execute("DELETE FROM wire_sales_logs WHERE invoice_no = ?", (str(select_modify_bill),))
+                            cursor.execute("""
+                                INSERT INTO wire_sales_logs (date_logged, invoice_no, party_name, gauge_size, weight_deducted_kg, timestamp) 
+                                VALUES (?, ?, ?, ?, ?, ?)
+                            """, (current_date_stamp, str(select_modify_bill), m_party.strip(), mod_target_gauge, float(m_weight), current_time_stamp))
+                        else:
+                            cursor.execute("DELETE FROM wire_sales_logs WHERE invoice_no = ?", (str(select_modify_bill),))
+                            
                         conn.commit()
-                        st.success("✔️ Updated!")
+                        st.success("✔️ Successfully updated invoice parameters and wire stock balances!")
+                        st.rerun()
+                        
+                    if delete_invoice:
+                        cursor = conn.cursor()
+                        for roll_type, old_qty in purane_sold_items.items():
+                            cursor.execute("UPDATE roll_types SET current_stock_rolls = current_stock_rolls + ? WHERE roll_name = ?", (int(old_qty), roll_type))
+                        
+                        if float(weight_curr) > 0.0:
+                            cursor.execute("UPDATE raw_material SET current_stock_kg = current_stock_kg + ? WHERE gauge_name = ?", (float(weight_curr), mod_target_gauge))
+                        
+                        cursor.execute("DELETE FROM sales_items WHERE invoice_no=?", (str(select_modify_bill),))
+                        cursor.execute("DELETE FROM sales_new WHERE invoice_no=?", (str(select_modify_bill),))
+                        cursor.execute("DELETE FROM wire_sales_logs WHERE invoice_no = ?", (str(select_modify_bill),))
+                        
+                        conn.commit()
+                        st.warning("❌ Invoice Deleted permanently! Raw wire weight credited back.")
                         st.rerun()
         conn.close()
 
