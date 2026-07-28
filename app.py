@@ -1112,10 +1112,24 @@ elif menu == "🧾 Sales & Weight Deduction":
 
 elif menu == "🚨 Dashboard & Payment Alerts":
     st.subheader("🚨 Live Payment Outstanding Overdue Alerts")
+    
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT invoice_no, party_name, bill_date, bill_amount, allowed_days, party_phone FROM sales_new WHERE payment_status = 'Pending'")
-    pending_bills = cursor.fetchall()
+    
+    pending_bills = []
+    
+    # 🔥 SAFE INJECTION TRY BLOCK: यह डेटाबेस क्रैश होने से बचाएगा
+    try:
+        cursor.execute("SELECT invoice_no, party_name, bill_date, bill_amount, allowed_days, party_phone FROM sales_new WHERE payment_status = 'Pending'")
+        pending_bills = cursor.fetchall()
+    except sqlite3.OperationalError:
+        try:
+            # अगर किसी कारणवश अभी भी party_phone पुराना कैश पकड़ रहा है, तो यह बिना फ़ोन के डेटा लोड कर देगा
+            cursor.execute("SELECT invoice_no, party_name, bill_date, bill_amount, allowed_days, '' FROM sales_new WHERE payment_status = 'Pending'")
+            pending_bills = cursor.fetchall()
+        except Exception:
+            pass
+            
     conn.close()
     
     current_date = datetime.now().date()
@@ -1124,15 +1138,19 @@ elif menu == "🚨 Dashboard & Payment Alerts":
     if pending_bills:
         for bill in pending_bills:
             inv, party, b_date_str, amount, allowed_days, phone = bill
-            bill_date = datetime.strptime(b_date_str, "%Y-%m-%d").date()
-            days_passed = (current_date - bill_date).days
             
-            # अगर बिल अलाउड डेज (क्रेडिट लिमिट) से ऊपर चला गया है
+            try:
+                bill_date = datetime.strptime(b_date_str, "%Y-%m-%d").date()
+                days_passed = (current_date - bill_date).days
+            except Exception:
+                continue
+            
+            # अगर बिल क्रेडिट लिमिट के दिन पार कर चुका है
             if days_passed > allowed_days:
                 alert_count += 1
                 overdue_days = days_passed - allowed_days
                 
-                # 🔥 PROFESSIONAL ENGLISH WHATSAPP TEMPLATE ENGINE
+                # 🔥 PROFESSIONAL WHATSAPP ENG MESSAGE TEMPLATE
                 raw_msg = (
                     f"Dear {party},\n\n"
                     f"This is a formal reminder regarding your outstanding "
@@ -1145,22 +1163,20 @@ elif menu == "🚨 Dashboard & Payment Alerts":
                     f"Mannat Wire Netting Industries / Factory ERP"
                 )
                 
-                # सुरक्षित यूआरएल एन्कोडिंग (Spaces और Lines के लिए)
                 encoded_msg = raw_msg.replace("\n", "%0A").replace(" ", "%20")
+                clean_phone = str(phone).strip() if phone else ""
                 
-                clean_phone = str(phone).strip()
                 if clean_phone and not clean_phone.startswith("91") and len(clean_phone) == 10:
                     clean_phone = "91" + clean_phone
                 
                 whatsapp_desktop_url = f"whatsapp://send?phone={clean_phone}&text={encoded_msg}"
                 
                 st.error(f"🔴 **ALERT:** Party Name: **{party}** (Bill: {inv}) | Overdue by **{overdue_days} day(s)** | Amount: **₹{amount:,}**")
-                if phone:
+                if clean_phone:
                     st.markdown(f"👉 [💬 Open in WhatsApp Desktop App for {party}]({whatsapp_desktop_url})")
                 else:
                     st.caption(f"⚠️ Note: {party} ka phone number billing section me chada nahi mila, kripya edit tab me phone jodein.")
                     
-        # 👍 अगर कोई भी बिल ओवरड्यू नहीं है, तो ये मैसेज दिखेगा
         if alert_count == 0: 
             st.success("👍 Sabhi pending bills credit limit ke andar hain!")
     else: 
