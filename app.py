@@ -113,12 +113,19 @@ def ensure_payments_table_exists():
     """)
     conn.commit()
     
-    # 2. 🔥 HARD PATCH: Puraani file me agar column miss ho gaya hai toh explicitly inject karega
+    # 2. 🔥 HARD PATCH 1: employee_payments me agar column miss ho gaya hai toh inject karega
     try:
         cursor.execute("ALTER TABLE employee_payments ADD COLUMN given_by_supervisor INTEGER DEFAULT 0")
         conn.commit()
     except sqlite3.OperationalError:
         pass # Column pehle se hi hai toh safe skip karega
+        
+    # 3. 🔥 HARD PATCH 2: sales_new me agar party_phone column miss ho gaya hai toh explicitly inject karega
+    try:
+        cursor.execute("ALTER TABLE sales_new ADD COLUMN party_phone TEXT DEFAULT ''")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass # Column pehle se hai toh safe skip
         
     conn.close()
 
@@ -192,7 +199,7 @@ menu = st.sidebar.radio(
         "👥 Workers Hisab-Kitab Ledger",
         "👑 Supervisor (Pappu Nishad)",
         "🛠️ Master Setup (Emp & Rates)",
-        "🔄 Master Sync & Upload"  # <-- नया परमानेंट अपलोडर विकल्प यहाँ जुड़ गया है
+        "🔄 Master Sync & Upload"
     ],
     label_visibility="collapsed"
 )
