@@ -100,7 +100,7 @@ def ensure_payments_table_exists():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 1. Base table creation if not exists
+    # 1. Base tables creation if not exists
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS employee_payments (
             pay_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,21 +111,39 @@ def ensure_payments_table_exists():
             remarks TEXT
         )
     """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS production_new (
+            p_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            emp_name TEXT,
+            roll_name TEXT,
+            quantity_produced INTEGER,
+            labor_earned REAL,
+            total_weight_kg REAL DEFAULT 0.0
+        )
+    """)
     conn.commit()
     
-    # 2. 🔥 HARD PATCH 1: employee_payments me agar column miss ho gaya hai toh inject karega
+    # 2. 🔥 HARD PATCH 1: employee_payments me given_by_supervisor inject karega
     try:
         cursor.execute("ALTER TABLE employee_payments ADD COLUMN given_by_supervisor INTEGER DEFAULT 0")
         conn.commit()
     except sqlite3.OperationalError:
-        pass # Column pehle se hi hai toh safe skip karega
+        pass 
         
-    # 3. 🔥 HARD PATCH 2: sales_new me agar party_phone column miss ho gaya hai toh explicitly inject karega
+    # 3. 🔥 HARD PATCH 2: sales_new me party_phone inject karega
     try:
         cursor.execute("ALTER TABLE sales_new ADD COLUMN party_phone TEXT DEFAULT ''")
         conn.commit()
     except sqlite3.OperationalError:
-        pass # Column pehle se hai toh safe skip
+        pass 
+
+    # 4. 🔥 HARD PATCH 3: production_new me agar total_weight_kg missing hai toh explicitly inject karega
+    try:
+        cursor.execute("ALTER TABLE production_new ADD COLUMN total_weight_kg REAL DEFAULT 0.0")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass 
         
     conn.close()
 
@@ -136,43 +154,32 @@ if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 if not st.session_state['logged_in']:
-    # Secure Login Screen Standard Pure Grid Display
     st.markdown('<div style="text-align: center; margin-top: 30px;"><h1 style="color: #1e3a8a; font-weight:900; letter-spacing:1px; margin-bottom:5px;">🏭 MANNAT WIRE NETTING INDUSTRIES</h1><p style="color: #4b5563; font-weight:600;">Enterprise Resource Planning System Secure Gateway</p></div>', unsafe_allow_html=True)
     st.markdown("---")
     
-    # Grid layout positioning alignment
     left_space, login_card, right_space = st.columns([1, 1.2, 1])
-    
     with login_card:
         st.markdown("<h3 style='color: #1f2937; font-weight:700; margin-bottom:20px;'>🔒 System Operator Login</h3>", unsafe_allow_html=True)
-        
         with st.form("secure_login_form"):
             username = st.text_input("Username / Login ID", placeholder="Enter Operator ID...", key="login_user_id")
             password = st.text_input("Password", type="password", placeholder="Enter Secure Password...", key="login_user_pass")
-            
             st.markdown("<br>", unsafe_allow_html=True)
             login_clicked = st.form_submit_button("🔑 Login to System", use_container_width=True, type="primary")
             
             if login_clicked:
                 user_clean = str(username).strip().upper()
                 pass_clean = str(password).strip()
-                
                 if user_clean == "MWNI" and pass_clean == "MWNI@2026":
                     st.session_state['logged_in'] = True
                     st.success("✔️ Authorization Successful! Loading System...")
                     st.rerun()
                 else:
                     st.error("❌ Invalid Username or Password! Access Denied.")
-                
     st.stop()
 
-# --- 🔓 CORE DASHBOARD LOAD (EXECUTES ONLY AFTER SUCCESSFUL LOGIN) ---
-
-# Grand Brand Header Display
 st.markdown('<div class="company-header">🏭 MANNAT WIRE NETTING INDUSTRIES</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">Advanced Factory Core Management System</div>', unsafe_allow_html=True)
 
-# Sidebar Header Branding & Logout System
 st.sidebar.markdown("""
     <div class="sidebar-brand-box">
         <div class="sidebar-brand-title">⚙️ ENTERPRISE ERP</div>
@@ -180,14 +187,12 @@ st.sidebar.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Session Logout Button
 if st.sidebar.button("🚪 Secure Logout", use_container_width=True):
     st.session_state['logged_in'] = False
     st.rerun()
 
 st.sidebar.markdown("---")
 
-# Navigation System Menu WITH NEW MASTER SYNC OPTION AT THE BOTTOM
 menu = st.sidebar.radio(
     "Navigation Menu", 
     [
